@@ -30,16 +30,15 @@
 //! println!("Authorization URL: {}", result.url);
 //! ```
 
+pub mod oauth;
 pub mod pkce;
 pub mod session;
-pub mod oauth;
-pub mod ffi;
 
 /// Prelude module for convenient imports
 pub mod prelude {
+    pub use crate::oauth::{AuthFlowResult, OAuthClient, OAuthConfig, TokenRefresher};
     pub use crate::pkce::Pkce;
     pub use crate::session::{MemoryStorage, Session, SessionStorage, Token};
-    pub use crate::oauth::{AuthFlowResult, OAuthClient, OAuthConfig, TokenRefresher};
 }
 
 #[cfg(test)]
@@ -70,9 +69,7 @@ mod tests {
 
         // Test token refresher
         let refresher = TokenRefresher::new(client.clone());
-        let token = refresher
-            .refresh_token("test-key", "test-refresh")
-            .unwrap();
+        let token = refresher.refresh_token("test-key", "test-refresh").unwrap();
 
         assert!(!token.access_token.is_empty());
         assert!(!token.is_expired());

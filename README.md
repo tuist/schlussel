@@ -8,7 +8,6 @@ A cross-platform OAuth 2.0 library with PKCE support for command-line applicatio
 - **Cross-platform**: Builds for Linux, macOS, and Windows (x86_64 and ARM64)
 - **Pluggable Storage**: Trait-based storage backend (implement `SessionStorage`)
 - **Concurrency Control**: Thread-safe token refresh with automatic locking using `parking_lot`
-- **C API**: Compatible with any language that supports C FFI
 - **Pure Rust**: Safe, fast, and reliable with Rust's memory safety guarantees
 
 ## What is PKCE?
@@ -19,11 +18,18 @@ PKCE (Proof Key for Code Exchange) is an extension to OAuth 2.0 that makes the a
 
 ### Rust
 
-Add to your `Cargo.toml`:
+Since this library is not yet published to crates.io, add it to your `Cargo.toml` using the Git repository:
 
 ```toml
 [dependencies]
-schlussel = "0.1.0"
+schlussel = { git = "https://github.com/tuist/schlussel" }
+```
+
+Or specify a particular branch, tag, or commit:
+
+```toml
+[dependencies]
+schlussel = { git = "https://github.com/tuist/schlussel", branch = "main" }
 ```
 
 ### Building from Source
@@ -83,57 +89,6 @@ let token = refresher.refresh_token("token-key", "refresh-token").unwrap();
 refresher.wait_for_refresh("token-key");
 ```
 
-### C API
-
-```c
-#include <schlussel.h>
-#include <stdio.h>
-
-int main() {
-    // Create storage
-    SchlusselStorage* storage = schlussel_storage_memory_create();
-
-    // Configure OAuth
-    SchlusselOAuthConfig config = {
-        .client_id = "your-client-id",
-        .authorization_endpoint = "https://accounts.example.com/oauth/authorize",
-        .token_endpoint = "https://accounts.example.com/oauth/token",
-        .redirect_uri = "http://localhost:8080/callback",
-        .scope = "read write"
-    };
-
-    // Create OAuth client
-    SchlusselOAuth* client = schlussel_oauth_create(&config, storage);
-
-    // Start OAuth flow
-    SchlusselAuthFlow flow;
-    SchlusselError err = schlussel_oauth_start_flow(client, &flow);
-
-    if (err == SCHLUSSEL_OK) {
-        printf("Please open this URL in your browser:\n%s\n", flow.url);
-        printf("State: %s\n", flow.state);
-
-        // ... Wait for callback and exchange code for token ...
-
-        schlussel_auth_flow_free(&flow);
-    }
-
-    // Create token refresher
-    SchlusselTokenRefresher* refresher = schlussel_token_refresher_create(client);
-
-    // Before process exit, wait for any in-progress refreshes
-    schlussel_token_refresher_wait(refresher, "token-key");
-
-    // Cleanup
-    schlussel_token_refresher_destroy(refresher);
-    schlussel_oauth_destroy(client);
-    schlussel_storage_destroy(storage);
-
-    return 0;
-}
-```
-
-
 
 ## Architecture
 
@@ -154,11 +109,6 @@ int main() {
    - Session lifecycle management
    - Token storage and retrieval
    - Token refresher with concurrency control
-
-4. **FFI Module** (`src/ffi.rs`)
-   - C-compatible API for cross-language interoperability
-   - Opaque pointer types for safety
-   - Error code enum for error handling
 
 ### Storage Interface
 
@@ -188,11 +138,6 @@ The library builds for the following platforms:
 - **macOS**: x86_64 (Intel), aarch64 (Apple Silicon)
 - **Windows**: x86_64, aarch64
 
-Build outputs include:
-- Static libraries (`.a` on Unix, `.lib` on Windows)
-- Shared libraries (`.so` on Linux, `.dylib` on macOS, `.dll` on Windows)
-- C headers (`include/schlussel.h`)
-
 ## Development
 
 ```bash
@@ -217,10 +162,7 @@ mise run build
 │   ├── lib.rs            # Main library entry point
 │   ├── pkce.rs           # PKCE implementation
 │   ├── session.rs        # Session and storage management
-│   ├── oauth.rs          # OAuth flow and token refresher
-│   └── ffi.rs            # C FFI bindings
-├── include/
-│   └── schlussel.h       # C header file
+│   └── oauth.rs          # OAuth flow and token refresher
 ├── mise/
 │   └── tasks/            # Mise task scripts
 │       ├── build         # Cross-platform build script
