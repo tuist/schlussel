@@ -1,0 +1,14 @@
+[tools]
+zig = "0.13.0"
+
+[tasks.build]
+description = "Build the library for all platforms"
+run = "mise/tasks/build.sh"
+
+[tasks.test]
+description = "Run tests"
+run = "zig build test"
+
+[tasks.dev]
+description = "Build for development"
+run = "zig build"

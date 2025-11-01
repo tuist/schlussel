@@ -1,0 +1,21 @@
+# Zig build artifacts
+zig-cache/
+zig-out/
+.zig-cache/
+
+# Distribution builds
+dist/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Mise
+.mise.lock
