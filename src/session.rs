@@ -1,10 +1,12 @@
+use parking_lot::RwLock;
 /// Session and token management with pluggable storage
-
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::fs;
+use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
-use parking_lot::RwLock;
+use url::Url;
 
 /// Session data stored during OAuth flow
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -132,6 +134,160 @@ impl SessionStorage for MemoryStorage {
     }
 }
 
+/// File-based storage implementation using XDG conventions
+///
+/// Stores sessions and tokens in JSON files following XDG Base Directory specification.
+/// Tokens are organized by domain for better security and organization.
+#[derive(Debug)]
+pub struct FileStorage {
+    base_path: PathBuf,
+}
+
+impl FileStorage {
+    /// Create a new file storage instance
+    ///
+    /// Uses XDG_DATA_HOME (or ~/.local/share on Linux/macOS, AppData on Windows)
+    /// to store credentials in schlussel/
+    pub fn new() -> Result<Self, String> {
+        let base_path = dirs::data_dir()
+            .ok_or_else(|| "Could not determine data directory".to_string())?
+            .join("schlussel");
+
+        fs::create_dir_all(&base_path)
+            .map_err(|e| format!("Failed to create storage directory: {}", e))?;
+
+        Ok(Self { base_path })
+    }
+
+    /// Create a file storage instance with a custom path
+    pub fn with_path(path: PathBuf) -> Result<Self, String> {
+        fs::create_dir_all(&path)
+            .map_err(|e| format!("Failed to create storage directory: {}", e))?;
+
+        Ok(Self { base_path: path })
+    }
+
+    /// Extract domain from a URL for namespacing tokens
+    fn extract_domain(url_str: &str) -> Result<String, String> {
+        let url = Url::parse(url_str).map_err(|e| format!("Invalid URL: {}", e))?;
+
+        url.host_str()
+            .map(|h| h.to_string())
+            .ok_or_else(|| "URL has no host".to_string())
+    }
+
+    /// Get the path for sessions file
+    fn sessions_path(&self) -> PathBuf {
+        self.base_path.join("sessions.json")
+    }
+
+    /// Get the path for a domain's tokens file
+    fn tokens_path(&self, domain: &str) -> PathBuf {
+        // Sanitize domain for use in filename
+        let safe_domain = domain.replace(['/', '\\', ':'], "_");
+        self.base_path.join(format!("tokens_{}.json", safe_domain))
+    }
+
+    /// Load sessions from file
+    fn load_sessions(&self) -> Result<HashMap<String, Session>, String> {
+        let path = self.sessions_path();
+        if !path.exists() {
+            return Ok(HashMap::new());
+        }
+
+        let content = fs::read_to_string(&path)
+            .map_err(|e| format!("Failed to read sessions file: {}", e))?;
+
+        serde_json::from_str(&content).map_err(|e| format!("Failed to parse sessions: {}", e))
+    }
+
+    /// Save sessions to file
+    fn save_sessions(&self, sessions: &HashMap<String, Session>) -> Result<(), String> {
+        let content = serde_json::to_string_pretty(sessions)
+            .map_err(|e| format!("Failed to serialize sessions: {}", e))?;
+
+        fs::write(self.sessions_path(), content)
+            .map_err(|e| format!("Failed to write sessions file: {}", e))
+    }
+
+    /// Load tokens for a specific domain
+    fn load_tokens(&self, domain: &str) -> Result<HashMap<String, Token>, String> {
+        let path = self.tokens_path(domain);
+        if !path.exists() {
+            return Ok(HashMap::new());
+        }
+
+        let content =
+            fs::read_to_string(&path).map_err(|e| format!("Failed to read tokens file: {}", e))?;
+
+        serde_json::from_str(&content).map_err(|e| format!("Failed to parse tokens: {}", e))
+    }
+
+    /// Save tokens for a specific domain
+    fn save_tokens(&self, domain: &str, tokens: &HashMap<String, Token>) -> Result<(), String> {
+        let content = serde_json::to_string_pretty(tokens)
+            .map_err(|e| format!("Failed to serialize tokens: {}", e))?;
+
+        fs::write(self.tokens_path(domain), content)
+            .map_err(|e| format!("Failed to write tokens file: {}", e))
+    }
+}
+
+impl SessionStorage for FileStorage {
+    fn save_session(&self, state: &str, session: Session) -> Result<(), String> {
+        let mut sessions = self.load_sessions()?;
+        sessions.insert(state.to_string(), session);
+        self.save_sessions(&sessions)
+    }
+
+    fn get_session(&self, state: &str) -> Result<Option<Session>, String> {
+        let sessions = self.load_sessions()?;
+        Ok(sessions.get(state).cloned())
+    }
+
+    fn delete_session(&self, state: &str) -> Result<(), String> {
+        let mut sessions = self.load_sessions()?;
+        sessions.remove(state);
+        self.save_sessions(&sessions)
+    }
+
+    fn save_token(&self, key: &str, token: Token) -> Result<(), String> {
+        // Extract domain from the key (format: "domain:token_id" or just use key as-is)
+        let domain = if key.contains(':') {
+            key.split(':').next().unwrap_or("default")
+        } else {
+            "default"
+        };
+
+        let mut tokens = self.load_tokens(domain)?;
+        tokens.insert(key.to_string(), token);
+        self.save_tokens(domain, &tokens)
+    }
+
+    fn get_token(&self, key: &str) -> Result<Option<Token>, String> {
+        let domain = if key.contains(':') {
+            key.split(':').next().unwrap_or("default")
+        } else {
+            "default"
+        };
+
+        let tokens = self.load_tokens(domain)?;
+        Ok(tokens.get(key).cloned())
+    }
+
+    fn delete_token(&self, key: &str) -> Result<(), String> {
+        let domain = if key.contains(':') {
+            key.split(':').next().unwrap_or("default")
+        } else {
+            "default"
+        };
+
+        let mut tokens = self.load_tokens(domain)?;
+        tokens.remove(key);
+        self.save_tokens(domain, &tokens)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -143,9 +299,7 @@ mod tests {
         let session = Session::new("test-state".to_string(), "test-verifier".to_string());
 
         // Save session
-        storage
-            .save_session("test-state", session.clone())
-            .unwrap();
+        storage.save_session("test-state", session.clone()).unwrap();
 
         // Retrieve session
         let retrieved = storage.get_session("test-state").unwrap();
@@ -188,5 +342,126 @@ mod tests {
             scope: None,
         };
         assert!(!valid_token.is_expired());
+    }
+
+    #[test]
+    fn test_file_storage_operations() {
+        use std::env;
+
+        // Create a temporary directory for testing
+        let temp_dir = env::temp_dir().join(format!("schlussel_test_{}", rand::random::<u32>()));
+        let storage = FileStorage::with_path(temp_dir.clone()).unwrap();
+
+        // Test session operations
+        let session = Session::new("test-state".to_string(), "test-verifier".to_string());
+        storage.save_session("test-state", session.clone()).unwrap();
+
+        let retrieved = storage.get_session("test-state").unwrap();
+        assert!(retrieved.is_some());
+        assert_eq!(retrieved.unwrap().state, "test-state");
+
+        storage.delete_session("test-state").unwrap();
+        let deleted = storage.get_session("test-state").unwrap();
+        assert!(deleted.is_none());
+
+        // Test token operations with domain binding
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+
+        let token = Token {
+            access_token: "test-token".to_string(),
+            refresh_token: Some("refresh".to_string()),
+            token_type: "Bearer".to_string(),
+            expires_in: Some(3600),
+            expires_at: Some(now + 3600),
+            scope: Some("read write".to_string()),
+        };
+
+        // Save with domain prefix
+        storage
+            .save_token("example.com:user1", token.clone())
+            .unwrap();
+
+        let retrieved_token = storage.get_token("example.com:user1").unwrap();
+        assert!(retrieved_token.is_some());
+        assert_eq!(retrieved_token.unwrap().access_token, "test-token");
+
+        storage.delete_token("example.com:user1").unwrap();
+        let deleted_token = storage.get_token("example.com:user1").unwrap();
+        assert!(deleted_token.is_none());
+
+        // Cleanup
+        fs::remove_dir_all(temp_dir).ok();
+    }
+
+    #[test]
+    fn test_file_storage_domain_separation() {
+        use std::env;
+
+        let temp_dir = env::temp_dir().join(format!("schlussel_test_{}", rand::random::<u32>()));
+        let storage = FileStorage::with_path(temp_dir.clone()).unwrap();
+
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+
+        let token1 = Token {
+            access_token: "token1".to_string(),
+            refresh_token: None,
+            token_type: "Bearer".to_string(),
+            expires_in: Some(3600),
+            expires_at: Some(now + 3600),
+            scope: None,
+        };
+
+        let token2 = Token {
+            access_token: "token2".to_string(),
+            refresh_token: None,
+            token_type: "Bearer".to_string(),
+            expires_in: Some(3600),
+            expires_at: Some(now + 3600),
+            scope: None,
+        };
+
+        // Save tokens for different domains
+        storage
+            .save_token("github.com:user1", token1.clone())
+            .unwrap();
+        storage
+            .save_token("gitlab.com:user1", token2.clone())
+            .unwrap();
+
+        // Verify they're stored separately
+        let retrieved1 = storage.get_token("github.com:user1").unwrap();
+        let retrieved2 = storage.get_token("gitlab.com:user1").unwrap();
+
+        assert_eq!(retrieved1.unwrap().access_token, "token1");
+        assert_eq!(retrieved2.unwrap().access_token, "token2");
+
+        // Verify separate files were created
+        assert!(temp_dir.join("tokens_github.com.json").exists());
+        assert!(temp_dir.join("tokens_gitlab.com.json").exists());
+
+        // Cleanup
+        fs::remove_dir_all(temp_dir).ok();
+    }
+
+    #[test]
+    fn test_domain_extraction() {
+        assert_eq!(
+            FileStorage::extract_domain("https://accounts.example.com/oauth/authorize").unwrap(),
+            "accounts.example.com"
+        );
+        assert_eq!(
+            FileStorage::extract_domain("https://github.com").unwrap(),
+            "github.com"
+        );
+        assert_eq!(
+            FileStorage::extract_domain("https://api.tuist.io/v1/auth").unwrap(),
+            "api.tuist.io"
+        );
     }
 }
