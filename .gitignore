@@ -5,6 +5,18 @@ zig-out/
 
 # Distribution builds
 dist/
+build-xcframework/
+*.xcframework/
+
+# Node.js
+bindings/node/node_modules/
+bindings/node/package-lock.json
+
+# Swift
+.build/
+.swiftpm/
+*.xcodeproj
+*.xcworkspace
 
 # IDE
 .vscode/

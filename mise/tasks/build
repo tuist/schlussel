@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+#MISE description="Build the library for all platforms"
 set -euo pipefail
 
 # Cross-platform build script for Schlussel

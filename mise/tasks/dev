@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+#MISE description="Build for development"
+set -euo pipefail
+
+zig build

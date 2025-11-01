@@ -17,28 +17,52 @@ PKCE (Proof Key for Code Exchange) is an extension to OAuth 2.0 that makes the a
 
 ## Installation
 
-### Using Mise
-
-The project uses [Mise](https://mise.jdx.dev/) for tool management:
+### Node.js
 
 ```bash
-mise install
+npm install @tuist/schlussel
+```
+
+See [bindings/node/README.md](bindings/node/README.md) for Node.js usage.
+
+### Swift (iOS/macOS)
+
+Add to your `Package.swift`:
+
+```swift
+dependencies: [
+    .package(url: "https://github.com/tuist/schlussel.git", from: "0.1.0")
+]
+```
+
+Or build the XCFramework:
+
+```bash
+mise run build-xcframework
 ```
 
 ### Building from Source
 
+The project uses [Mise](https://mise.jdx.dev/) for tool management:
+
 ```bash
+# Install tools
+mise install
+
 # Development build
-zig build
+mise run dev
 
 # Run tests
-zig build test
+mise run test
 
 # Run example
 zig build example
 
 # Cross-platform build for all targets
 mise run build
+
+# Build XCFramework for Apple platforms
+mise run build-xcframework
 ```
 
 ## Usage
@@ -143,7 +167,73 @@ pub fn main() !void {
 }
 ```
 
-### Node.js Example (using FFI)
+### Swift API
+
+```swift
+import Schlussel
+
+// Create storage
+let storage = try MemoryStorage()
+
+// Configure OAuth
+let config = OAuthConfig(
+    clientId: "your-client-id",
+    authorizationEndpoint: "https://accounts.example.com/oauth/authorize",
+    tokenEndpoint: "https://accounts.example.com/oauth/token",
+    redirectUri: "myapp://callback",
+    scope: "read write"
+)
+
+// Create OAuth client
+let client = try OAuthClient(config: config, storage: storage)
+
+// Start OAuth flow
+let result = try client.startAuthFlow()
+print("Authorization URL: \(result.url)")
+
+// Create token refresher
+let refresher = try TokenRefresher(client: client)
+
+// Before exit, wait for refresh
+defer {
+    refresher.waitForRefresh(key: "token-key")
+}
+```
+
+### Node.js API
+
+```javascript
+const { OAuthClient, MemoryStorage, TokenRefresher } = require('@tuist/schlussel');
+
+// Create storage
+const storage = new MemoryStorage();
+
+// Configure OAuth
+const client = new OAuthClient({
+  clientId: 'your-client-id',
+  authorizationEndpoint: 'https://accounts.example.com/oauth/authorize',
+  tokenEndpoint: 'https://accounts.example.com/oauth/token',
+  redirectUri: 'http://localhost:8080/callback',
+  scope: 'read write'
+}, storage);
+
+// Start OAuth flow
+const { url, state } = client.startAuthFlow();
+console.log('Open this URL:', url);
+
+// Create token refresher
+const refresher = new TokenRefresher(client);
+
+// Before exit, wait for refresh
+process.on('beforeExit', () => {
+  refresher.waitForRefresh('token-key');
+  refresher.destroy();
+  client.destroy();
+  storage.destroy();
+});
+```
+
+### Node.js Example (using FFI directly)
 
 ```javascript
 const ffi = require('ffi-napi');
