@@ -133,187 +133,46 @@ int main() {
 }
 ```
 
-### Zig API
 
-```zig
-const std = @import("std");
-const schlussel = @import("schlussel");
-
-pub fn main() !void {
-    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-    defer _ = gpa.deinit();
-    const allocator = gpa.allocator();
-
-    // Create storage
-    var storage = schlussel.MemoryStorage.init(allocator);
-    defer storage.deinit();
-
-    // Configure OAuth
-    const config = schlussel.OAuthConfig{
-        .client_id = "your-client-id",
-        .authorization_endpoint = "https://accounts.example.com/oauth/authorize",
-        .token_endpoint = "https://accounts.example.com/oauth/token",
-        .redirect_uri = "http://localhost:8080/callback",
-        .scope = "read write",
-    };
-
-    // Create OAuth client
-    var oauth_client = schlussel.OAuth.init(allocator, config, storage.storage());
-
-    // Start OAuth flow
-    const flow_result = try oauth_client.startAuthFlow();
-    defer allocator.free(flow_result.url);
-    defer allocator.free(flow_result.state);
-
-    std.debug.print("Authorization URL: {s}\n", .{flow_result.url});
-
-    // Create token refresher
-    var refresher = schlussel.TokenRefresher.init(allocator, &oauth_client);
-    defer refresher.deinit();
-
-    // Refresh token with concurrency control
-    const token = try refresher.refreshToken("token-key", "refresh-token");
-    defer {
-        var mut_token = token;
-        mut_token.deinit();
-    }
-
-    // Before exit, wait for refresh
-    refresher.waitForRefresh("token-key");
-}
-```
-
-### Swift API
-
-```swift
-import Schlussel
-
-// Create storage
-let storage = try MemoryStorage()
-
-// Configure OAuth
-let config = OAuthConfig(
-    clientId: "your-client-id",
-    authorizationEndpoint: "https://accounts.example.com/oauth/authorize",
-    tokenEndpoint: "https://accounts.example.com/oauth/token",
-    redirectUri: "myapp://callback",
-    scope: "read write"
-)
-
-// Create OAuth client
-let client = try OAuthClient(config: config, storage: storage)
-
-// Start OAuth flow
-let result = try client.startAuthFlow()
-print("Authorization URL: \(result.url)")
-
-// Create token refresher
-let refresher = try TokenRefresher(client: client)
-
-// Before exit, wait for refresh
-defer {
-    refresher.waitForRefresh(key: "token-key")
-}
-```
-
-### Node.js API
-
-```javascript
-const { OAuthClient, MemoryStorage, TokenRefresher } = require('@tuist/schlussel');
-
-// Create storage
-const storage = new MemoryStorage();
-
-// Configure OAuth
-const client = new OAuthClient({
-  clientId: 'your-client-id',
-  authorizationEndpoint: 'https://accounts.example.com/oauth/authorize',
-  tokenEndpoint: 'https://accounts.example.com/oauth/token',
-  redirectUri: 'http://localhost:8080/callback',
-  scope: 'read write'
-}, storage);
-
-// Start OAuth flow
-const { url, state } = client.startAuthFlow();
-console.log('Open this URL:', url);
-
-// Create token refresher
-const refresher = new TokenRefresher(client);
-
-// Before exit, wait for refresh
-process.on('beforeExit', () => {
-  refresher.waitForRefresh('token-key');
-  refresher.destroy();
-  client.destroy();
-  storage.destroy();
-});
-```
-
-### Node.js Example (using FFI directly)
-
-```javascript
-const ffi = require('ffi-napi');
-const ref = require('ref-napi');
-
-const schlussel = ffi.Library('libschlussel', {
-  'schlussel_version': ['string', []],
-  'schlussel_storage_memory_create': ['pointer', []],
-  'schlussel_oauth_create': ['pointer', ['pointer', 'pointer']],
-  'schlussel_oauth_start_flow': ['int', ['pointer', 'pointer']],
-  // ... other functions
-});
-
-const version = schlussel.schlussel_version();
-console.log(`Schlussel version: ${version}`);
-```
 
 ## Architecture
 
 ### Components
 
-1. **PKCE Module** (`src/pkce.zig`)
+1. **PKCE Module** (`src/pkce.rs`)
    - Generates cryptographically secure code verifier and challenge
    - Uses SHA256 for challenge generation
    - Base64 URL-safe encoding
 
-2. **Session Management** (`src/session.zig`)
-   - Pluggable storage interface via vtable pattern
+2. **Session Management** (`src/session.rs`)
+   - Trait-based storage interface
    - Built-in memory storage for simple use cases
-   - Thread-safe operations with mutex locks
+   - Thread-safe operations with `parking_lot` mutex
 
-3. **OAuth Flow** (`src/oauth.zig`)
+3. **OAuth Flow** (`src/oauth.rs`)
    - Authorization URL generation
    - Session lifecycle management
    - Token storage and retrieval
+   - Token refresher with concurrency control
 
-4. **Token Refresher** (`src/oauth.zig`)
-   - Prevents concurrent token refreshes
-   - Ensures only one refresh per token at a time
-   - Supports waiting for in-progress refreshes before process exit
-
-5. **C API** (`src/c_api.zig`)
-   - Foreign function interface for C compatibility
+4. **FFI Module** (`src/ffi.rs`)
+   - C-compatible API for cross-language interoperability
    - Opaque pointer types for safety
    - Error code enum for error handling
 
 ### Storage Interface
 
-Implement your own storage backend by conforming to the `SessionStorage` interface:
+Implement your own storage backend by implementing the `SessionStorage` trait:
 
-```zig
-pub const SessionStorage = struct {
-    ptr: *anyopaque,
-    vtable: *const VTable,
-
-    pub const VTable = struct {
-        saveSession: *const fn (ptr: *anyopaque, state: []const u8, session: Session) anyerror!void,
-        getSession: *const fn (ptr: *anyopaque, state: []const u8) anyerror!?Session,
-        deleteSession: *const fn (ptr: *anyopaque, state: []const u8) anyerror!void,
-        saveToken: *const fn (ptr: *anyopaque, key: []const u8, token: Token) anyerror!void,
-        getToken: *const fn (ptr: *anyopaque, key: []const u8) anyerror!?Token,
-        deleteToken: *const fn (ptr: *anyopaque, key: []const u8) anyerror!void,
-    };
-};
+```rust
+pub trait SessionStorage: Send + Sync {
+    fn save_session(&self, state: &str, session: Session) -> Result<(), Box<dyn std::error::Error>>;
+    fn get_session(&self, state: &str) -> Result<Option<Session>, Box<dyn std::error::Error>>;
+    fn delete_session(&self, state: &str) -> Result<(), Box<dyn std::error::Error>>;
+    fn save_token(&self, key: &str, token: Token) -> Result<(), Box<dyn std::error::Error>>;
+    fn get_token(&self, key: &str) -> Result<Option<Token>, Box<dyn std::error::Error>>;
+    fn delete_token(&self, key: &str) -> Result<(), Box<dyn std::error::Error>>;
+}
 ```
 
 Example storage implementations:
@@ -343,11 +202,11 @@ mise install
 # Run tests
 mise run test
 
+# Build library
+mise run dev
+
 # Build for all platforms
 mise run build
-
-# Run example
-zig build example
 ```
 
 ## Project Structure
@@ -355,20 +214,20 @@ zig build example
 ```
 .
 ├── src/
-│   ├── lib.zig           # Main library entry point
-│   ├── pkce.zig          # PKCE implementation
-│   ├── session.zig       # Session and storage management
-│   ├── oauth.zig         # OAuth flow orchestration
-│   ├── c_api.zig         # C API bindings
-│   └── example.zig       # Example usage
+│   ├── lib.rs            # Main library entry point
+│   ├── pkce.rs           # PKCE implementation
+│   ├── session.rs        # Session and storage management
+│   ├── oauth.rs          # OAuth flow and token refresher
+│   └── ffi.rs            # C FFI bindings
 ├── include/
 │   └── schlussel.h       # C header file
-├── test/
-│   └── integration_test.zig
 ├── mise/
-│   └── tasks/
-│       └── build.sh      # Cross-platform build script
-├── build.zig             # Zig build configuration
+│   └── tasks/            # Mise task scripts
+│       ├── build         # Cross-platform build script
+│       ├── dev           # Development build
+│       └── test          # Test runner
+├── Cargo.toml            # Rust package configuration
+├── cbindgen.toml         # C binding generation config
 ├── .mise.toml            # Mise configuration
 └── README.md
 ```
@@ -378,16 +237,16 @@ zig build example
 1. **PKCE is Required**: This library always uses PKCE for enhanced security
 2. **State Parameter**: Random state generation to prevent CSRF attacks
 3. **Secure Storage**: Use encrypted storage in production (implement custom `SessionStorage`)
-4. **Token Lifetime**: Always check token expiration with `token.isExpired()`
+4. **Token Lifetime**: Always check token expiration with `token.is_expired()`
 5. **HTTPS Only**: Ensure all OAuth endpoints use HTTPS in production
 
 ## Contributing
 
 Contributions are welcome! Please ensure:
 
-1. All tests pass: `zig build test`
-2. Code is formatted: `zig fmt src/`
-3. Cross-platform build works: `mise run build`
+1. All tests pass: `cargo test`
+2. Code is formatted: `cargo fmt`
+3. Code passes linting: `cargo clippy`
 
 ## License
 
