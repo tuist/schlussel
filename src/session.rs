@@ -14,6 +14,8 @@ pub struct Session {
     pub state: String,
     pub code_verifier: String,
     pub created_at: u64,
+    #[serde(default)]
+    pub domain: Option<String>,
 }
 
 impl Session {
@@ -28,6 +30,22 @@ impl Session {
             state,
             code_verifier,
             created_at,
+            domain: None,
+        }
+    }
+
+    /// Create a new session with a domain
+    pub fn with_domain(state: String, code_verifier: String, domain: String) -> Self {
+        let created_at = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+
+        Self {
+            state,
+            code_verifier,
+            created_at,
+            domain: Some(domain),
         }
     }
 }
@@ -204,9 +222,12 @@ impl FileStorage {
             .ok_or_else(|| "URL has no host".to_string())
     }
 
-    /// Get the path for sessions file
-    fn sessions_path(&self) -> PathBuf {
-        self.base_path.join("sessions.json")
+    /// Get the path for a domain's sessions file
+    fn sessions_path(&self, domain: &str) -> PathBuf {
+        // Sanitize domain for use in filename
+        let safe_domain = domain.replace(['/', '\\', ':'], "_");
+        self.base_path
+            .join(format!("sessions_{}.json", safe_domain))
     }
 
     /// Get the path for a domain's tokens file
@@ -216,9 +237,9 @@ impl FileStorage {
         self.base_path.join(format!("tokens_{}.json", safe_domain))
     }
 
-    /// Load sessions from file
-    fn load_sessions(&self) -> Result<HashMap<String, Session>, String> {
-        let path = self.sessions_path();
+    /// Load sessions for a specific domain
+    fn load_sessions(&self, domain: &str) -> Result<HashMap<String, Session>, String> {
+        let path = self.sessions_path(domain);
         if !path.exists() {
             return Ok(HashMap::new());
         }
@@ -229,12 +250,16 @@ impl FileStorage {
         serde_json::from_str(&content).map_err(|e| format!("Failed to parse sessions: {}", e))
     }
 
-    /// Save sessions to file
-    fn save_sessions(&self, sessions: &HashMap<String, Session>) -> Result<(), String> {
+    /// Save sessions for a specific domain
+    fn save_sessions(
+        &self,
+        domain: &str,
+        sessions: &HashMap<String, Session>,
+    ) -> Result<(), String> {
         let content = serde_json::to_string_pretty(sessions)
             .map_err(|e| format!("Failed to serialize sessions: {}", e))?;
 
-        fs::write(self.sessions_path(), content)
+        fs::write(self.sessions_path(domain), content)
             .map_err(|e| format!("Failed to write sessions file: {}", e))
     }
 
@@ -263,20 +288,68 @@ impl FileStorage {
 
 impl SessionStorage for FileStorage {
     fn save_session(&self, state: &str, session: Session) -> Result<(), String> {
-        let mut sessions = self.load_sessions()?;
+        // Use domain from session, or "default" if not specified
+        let domain = session
+            .domain
+            .clone()
+            .unwrap_or_else(|| "default".to_string());
+        let mut sessions = self.load_sessions(&domain)?;
         sessions.insert(state.to_string(), session);
-        self.save_sessions(&sessions)
+        self.save_sessions(&domain, &sessions)
     }
 
     fn get_session(&self, state: &str) -> Result<Option<Session>, String> {
-        let sessions = self.load_sessions()?;
-        Ok(sessions.get(state).cloned())
+        // Try to find session in all domain files
+        // First try default domain
+        let sessions = self.load_sessions("default")?;
+        if let Some(session) = sessions.get(state) {
+            return Ok(Some(session.clone()));
+        }
+
+        // If not found in default, we need to search all session files
+        // This is a bit inefficient, but sessions are temporary and not performance-critical
+        let entries = fs::read_dir(&self.base_path)
+            .map_err(|e| format!("Failed to read storage directory: {}", e))?;
+
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
+                if name.starts_with("sessions_") && name.ends_with(".json") {
+                    // Extract domain from filename
+                    let domain = &name[9..name.len() - 5]; // Remove "sessions_" and ".json"
+                    if domain != "default" {
+                        let sessions = self.load_sessions(domain)?;
+                        if let Some(session) = sessions.get(state) {
+                            return Ok(Some(session.clone()));
+                        }
+                    }
+                }
+            }
+        }
+
+        Ok(None)
     }
 
     fn delete_session(&self, state: &str) -> Result<(), String> {
-        let mut sessions = self.load_sessions()?;
-        sessions.remove(state);
-        self.save_sessions(&sessions)
+        // Try to find and delete session from all domain files
+        let entries = fs::read_dir(&self.base_path)
+            .map_err(|e| format!("Failed to read storage directory: {}", e))?;
+
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
+                if name.starts_with("sessions_") && name.ends_with(".json") {
+                    let domain = &name[9..name.len() - 5];
+                    let mut sessions = self.load_sessions(domain)?;
+                    if sessions.remove(state).is_some() {
+                        self.save_sessions(domain, &sessions)?;
+                        return Ok(());
+                    }
+                }
+            }
+        }
+
+        Ok(())
     }
 
     fn save_token(&self, key: &str, token: Token) -> Result<(), String> {
@@ -419,6 +492,51 @@ mod tests {
         storage.delete_token("example.com:user1").unwrap();
         let deleted_token = storage.get_token("example.com:user1").unwrap();
         assert!(deleted_token.is_none());
+
+        // Cleanup
+        fs::remove_dir_all(temp_dir).ok();
+    }
+
+    #[test]
+    fn test_file_storage_session_domain_separation() {
+        use std::env;
+
+        let temp_dir = env::temp_dir().join(format!("schlussel_test_{}", rand::random::<u32>()));
+        let storage = FileStorage::with_path(temp_dir.clone()).unwrap();
+
+        // Test sessions with different domains
+        let session1 = Session::with_domain(
+            "state1".to_string(),
+            "verifier1".to_string(),
+            "github.com".to_string(),
+        );
+        let session2 = Session::with_domain(
+            "state2".to_string(),
+            "verifier2".to_string(),
+            "gitlab.com".to_string(),
+        );
+
+        // Save sessions for different domains
+        storage.save_session("state1", session1.clone()).unwrap();
+        storage.save_session("state2", session2.clone()).unwrap();
+
+        // Verify they're stored separately
+        let retrieved1 = storage.get_session("state1").unwrap();
+        let retrieved2 = storage.get_session("state2").unwrap();
+
+        assert!(retrieved1.is_some());
+        assert!(retrieved2.is_some());
+        assert_eq!(retrieved1.unwrap().domain, Some("github.com".to_string()));
+        assert_eq!(retrieved2.unwrap().domain, Some("gitlab.com".to_string()));
+
+        // Verify separate files were created
+        assert!(temp_dir.join("sessions_github.com.json").exists());
+        assert!(temp_dir.join("sessions_gitlab.com.json").exists());
+
+        // Test deletion
+        storage.delete_session("state1").unwrap();
+        assert!(storage.get_session("state1").unwrap().is_none());
+        assert!(storage.get_session("state2").unwrap().is_some());
 
         // Cleanup
         fs::remove_dir_all(temp_dir).ok();

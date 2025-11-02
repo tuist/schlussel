@@ -163,9 +163,12 @@ refresher.wait_for_refresh("token-key");
    - Location (when using `FileStorage::new("my-app")`):
      - Linux/macOS: `~/.local/share/my-app/`
      - Windows: `%APPDATA%\my-app\`
-   - **Domain-based organization**: Tokens are stored in separate files per domain
-     - Format: `tokens_<domain>.json`
-     - Example: `tokens_github.com.json`, `tokens_api.tuist.io.json`
+   - **Domain-based organization**: Both sessions and tokens are stored in separate files per domain
+     - Session format: `sessions_<domain>.json`
+     - Token format: `tokens_<domain>.json`
+     - Example: `sessions_github.com.json`, `tokens_github.com.json`
+   - Sessions can optionally specify a domain using `Session::with_domain()`
+     - If no domain is specified, defaults to `sessions_default.json`
    - Token keys use format: `domain:identifier`
      - Example: `github.com:user@example.com`
    - Alternative: Use `FileStorage::with_path(path)` for custom directory
