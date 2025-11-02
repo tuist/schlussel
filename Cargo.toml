@@ -24,6 +24,7 @@ reqwest = { version = "0.12", features = ["blocking", "json"] }
 thiserror = "2.0"
 webbrowser = "1.0"
 fs2 = "0.4"
+keyring = "3.6"
 
 [dev-dependencies]
 criterion = "0.5"

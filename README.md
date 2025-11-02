@@ -391,6 +391,39 @@ let token = refresher.refresh_token_for_key("example.com:user").unwrap();
 - ✅ Safe for parallel execution (cron jobs, CI/CD, etc.)
 - ✅ Automatic with file-based locks (works on Unix, Linux, macOS, Windows)
 
+#### Secure Token Storage (Recommended for Production)
+
+For production use, store tokens securely in the OS credential manager:
+
+```rust
+use schlussel::prelude::*;
+use std::sync::Arc;
+
+// Create secure storage (uses OS keychain/credential manager)
+let storage = Arc::new(SecureStorage::new("my-app").unwrap());
+
+// Platform-specific storage:
+// - macOS: Keychain
+// - Windows: Credential Manager
+// - Linux: Secret Service API (libsecret)
+
+let config = OAuthConfig::github("client-id", Some("repo user"));
+let client = OAuthClient::new(config, storage.clone());
+
+// Tokens are now stored encrypted by the OS!
+let token = client.authorize_device().unwrap();
+client.save_token("github.com:user", token).unwrap();
+```
+
+**Security benefits:**
+- ✅ Tokens encrypted at rest by the OS
+- ✅ OS-level access control
+- ✅ Not visible as plain text in file system
+- ✅ Integrates with OS security features
+- ✅ Automatic encryption key management
+
+**Note:** Sessions are still stored in files (they're temporary and less sensitive than tokens).
+
 #### Using In-Memory Storage (For testing)
 
 ```rust
@@ -451,7 +484,21 @@ refresher.wait_for_refresh("token-key");
 
 #### Built-in Storage Options
 
-1. **FileStorage** (Recommended for production CLI apps)
+1. **SecureStorage** (Recommended for production)
+   - Stores tokens in OS credential manager (encrypted)
+   - Sessions in files (temporary, less sensitive)
+   - Platform-specific secure storage:
+     - **macOS**: Keychain
+     - **Windows**: Credential Manager
+     - **Linux**: Secret Service API (libsecret)
+   - Security benefits:
+     - ✅ Tokens encrypted at rest by OS
+     - ✅ OS-level access control
+     - ✅ Not visible as plain text
+     - ✅ Automatic key management
+   - Usage: `SecureStorage::new("my-app")`
+
+2. **FileStorage** (Good for development)
    - Stores sessions and tokens in JSON files
    - Follows XDG Base Directory specification
    - Configurable application name for storage path
@@ -467,8 +514,9 @@ refresher.wait_for_refresh("token-key");
    - Token keys use format: `domain:identifier`
      - Example: `github.com:user@example.com`
    - Alternative: Use `FileStorage::with_path(path)` for custom directory
+   - ⚠️ **Warning**: Tokens stored as plain JSON (use SecureStorage for production)
 
-2. **MemoryStorage**
+3. **MemoryStorage**
    - In-memory storage using `HashMap`
    - Thread-safe with `parking_lot::RwLock`
    - Not persistent (data lost on exit)
