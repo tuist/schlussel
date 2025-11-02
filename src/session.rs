@@ -6,7 +6,6 @@ use std::fs;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::{SystemTime, UNIX_EPOCH};
-use url::Url;
 
 /// Session data stored during OAuth flow
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -211,15 +210,6 @@ impl FileStorage {
             .map_err(|e| format!("Failed to create storage directory: {}", e))?;
 
         Ok(Self { base_path: path })
-    }
-
-    /// Extract domain from a URL for namespacing tokens
-    fn extract_domain(url_str: &str) -> Result<String, String> {
-        let url = Url::parse(url_str).map_err(|e| format!("Invalid URL: {}", e))?;
-
-        url.host_str()
-            .map(|h| h.to_string())
-            .ok_or_else(|| "URL has no host".to_string())
     }
 
     /// Get the path for a domain's sessions file
@@ -593,21 +583,5 @@ mod tests {
 
         // Cleanup
         fs::remove_dir_all(temp_dir).ok();
-    }
-
-    #[test]
-    fn test_domain_extraction() {
-        assert_eq!(
-            FileStorage::extract_domain("https://accounts.example.com/oauth/authorize").unwrap(),
-            "accounts.example.com"
-        );
-        assert_eq!(
-            FileStorage::extract_domain("https://github.com").unwrap(),
-            "github.com"
-        );
-        assert_eq!(
-            FileStorage::extract_domain("https://api.tuist.io/v1/auth").unwrap(),
-            "api.tuist.io"
-        );
     }
 }
