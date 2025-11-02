@@ -76,7 +76,7 @@ impl RefreshLockManager {
     /// ```no_run
     /// use schlussel::lock::RefreshLockManager;
     ///
-    /// let manager = RefreshLockManager::default().unwrap();
+    /// let manager = RefreshLockManager::with_default_dir().unwrap();
     /// let lock = manager.acquire_lock("github.com:user").unwrap();
     /// // Do token refresh here
     /// // Lock automatically released when `lock` goes out of scope
