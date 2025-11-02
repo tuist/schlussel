@@ -47,7 +47,9 @@ pub mod prelude {
         AuthFlowResult, DeviceAuthorizationResponse, OAuthClient, OAuthConfig, TokenRefresher,
     };
     pub use crate::pkce::Pkce;
-    pub use crate::session::{FileStorage, MemoryStorage, Session, SessionStorage, Token};
+    pub use crate::session::{
+        FileStorage, MemoryStorage, SecureStorage, Session, SessionStorage, Token,
+    };
 }
 
 #[cfg(test)]
