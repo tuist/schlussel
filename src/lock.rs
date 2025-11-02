@@ -129,6 +129,9 @@ impl RefreshLockManager {
                 path: lock_path,
             })),
             Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => Ok(None),
+            // On Windows, locked files return error code 33
+            #[cfg(windows)]
+            Err(e) if e.raw_os_error() == Some(33) => Ok(None),
             Err(e) => Err(e.into()),
         }
     }
