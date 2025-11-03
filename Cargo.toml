@@ -8,21 +8,18 @@ description = "Cross-platform OAuth 2.0 with PKCE for CLI applications"
 repository = "https://github.com/tuist/schlussel"
 keywords = ["oauth", "oauth2", "pkce", "cli", "authentication"]
 categories = ["authentication", "api-bindings"]
+include = [
+    "src/**/*",
+    "include/schlussel.h",
+    "Cargo.toml",
+    "LICENSE",
+    "README.md",
+]
+# Explicitly exclude large files that might be in working directory during release
 exclude = [
-    "target/",
-    ".github/",
-    ".git/",
-    "scripts/",
-    "swift/",
-    "examples/",
-    "*.sh",
-    ".mise.toml",
-    "cliff.toml",
-    "RELEASE.md",
-    "CLAUDE.md",
-    "Cargo.lock",
-    "docs/",
-    "mise/",
+    "*.xcframework.zip",
+    "*.xcframework",
+    "Schlussel.xcframework.zip",
 ]
 
 [lib]
