@@ -94,6 +94,30 @@ jobs:
           echo "checksum=$CHECKSUM" >> "$GITHUB_OUTPUT"
           echo "XCFramework checksum: $CHECKSUM"
 
+      - name: Install podman for cross-platform builds
+        if: env.should-release == 'true'
+        run: brew install podman
+
+      - name: Initialize podman machine
+        if: env.should-release == 'true'
+        run: |
+          podman machine init || true
+          podman machine start || true
+
+      - name: Build Artifact Bundle
+        if: env.should-release == 'true'
+        run: |
+          VERSION=$(echo "${{ steps.next-version.outputs.NEXT_VERSION }}" | sed 's/^v//')
+          ./scripts/build-artifactbundle.sh "$VERSION"
+
+      - name: Calculate Artifact Bundle checksum
+        id: artifactbundle-checksum
+        if: env.should-release == 'true'
+        run: |
+          CHECKSUM=$(swift package compute-checksum target/Schlussel.artifactbundle.zip)
+          echo "checksum=$CHECKSUM" >> "$GITHUB_OUTPUT"
+          echo "Artifact Bundle checksum: $CHECKSUM"
+
       - name: Update README with XCFramework version
         if: env.should-release == 'true'
         run: |
@@ -122,7 +146,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          CHECKSUM=${{ steps.xcframework-checksum.outputs.checksum }}
+          XCFRAMEWORK_CHECKSUM=${{ steps.xcframework-checksum.outputs.checksum }}
+          ARTIFACTBUNDLE_CHECKSUM=${{ steps.artifactbundle-checksum.outputs.checksum }}
           VERSION=${{ steps.next-version.outputs.NEXT_VERSION }}
 
           echo "RELEASE_NOTES<<EOF" >> "$GITHUB_OUTPUT"
@@ -133,17 +158,29 @@ jobs:
             sed '/^## \[.*\] - [0-9-]*$/d' | \
             sed '1{/^$/d;}' >> "$GITHUB_OUTPUT"
 
-          # Add XCFramework installation instructions
+          # Add installation instructions
           echo "" >> "$GITHUB_OUTPUT"
           echo "## 📦 Installation" >> "$GITHUB_OUTPUT"
           echo "" >> "$GITHUB_OUTPUT"
-          echo "### Swift Package Manager" >> "$GITHUB_OUTPUT"
+          echo "### Swift Package Manager (Cross-Platform)" >> "$GITHUB_OUTPUT"
+          echo "" >> "$GITHUB_OUTPUT"
+          echo "**Artifact Bundle** (supports macOS, Linux, Windows):" >> "$GITHUB_OUTPUT"
+          echo "" >> "$GITHUB_OUTPUT"
+          echo "\`\`\`swift" >> "$GITHUB_OUTPUT"
+          echo ".binaryTarget(" >> "$GITHUB_OUTPUT"
+          echo "    name: \"Schlussel\"," >> "$GITHUB_OUTPUT"
+          echo "    url: \"https://github.com/tuist/schlussel/releases/download/$VERSION/Schlussel.artifactbundle.zip\"," >> "$GITHUB_OUTPUT"
+          echo "    checksum: \"$ARTIFACTBUNDLE_CHECKSUM\"" >> "$GITHUB_OUTPUT"
+          echo ")" >> "$GITHUB_OUTPUT"
+          echo "\`\`\`" >> "$GITHUB_OUTPUT"
+          echo "" >> "$GITHUB_OUTPUT"
+          echo "**XCFramework** (Apple platforms only - iOS, macOS):" >> "$GITHUB_OUTPUT"
           echo "" >> "$GITHUB_OUTPUT"
           echo "\`\`\`swift" >> "$GITHUB_OUTPUT"
           echo ".binaryTarget(" >> "$GITHUB_OUTPUT"
           echo "    name: \"Schlussel\"," >> "$GITHUB_OUTPUT"
           echo "    url: \"https://github.com/tuist/schlussel/releases/download/$VERSION/Schlussel.xcframework.zip\"," >> "$GITHUB_OUTPUT"
-          echo "    checksum: \"$CHECKSUM\"" >> "$GITHUB_OUTPUT"
+          echo "    checksum: \"$XCFRAMEWORK_CHECKSUM\"" >> "$GITHUB_OUTPUT"
           echo ")" >> "$GITHUB_OUTPUT"
           echo "\`\`\`" >> "$GITHUB_OUTPUT"
           echo "" >> "$GITHUB_OUTPUT"
@@ -166,6 +203,7 @@ jobs:
           target_commitish: ${{ steps.auto-commit-action.outputs.commit_hash }}
           files: |
             Schlussel.xcframework.zip
+            target/Schlussel.artifactbundle.zip
 
       - name: Publish to crates.io
         if: env.should-release == 'true'
