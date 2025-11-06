@@ -102,9 +102,42 @@ if [ -n "$CONTAINER_CMD" ]; then
     fi
 fi
 
-# Create info.json
+# Create info.json dynamically based on which binaries exist
 echo ""
 echo "📝 Creating artifact bundle metadata..."
+
+# Build variants array based on existing files
+VARIANTS=""
+FIRST=true
+
+if [ -f "${VERSION_DIR}/lib/libschlussel-macos.a" ]; then
+    VARIANTS="${VARIANTS}        {
+          \"path\": \"schlussel-${VERSION}/lib/libschlussel-macos.a\",
+          \"supportedTriples\": [\"x86_64-apple-macosx\", \"arm64-apple-macosx\"]
+        }"
+    FIRST=false
+fi
+
+if [ -f "${VERSION_DIR}/lib/libschlussel-linux-x86_64.a" ]; then
+    [ "$FIRST" = false ] && VARIANTS="${VARIANTS},"
+    VARIANTS="${VARIANTS}
+        {
+          \"path\": \"schlussel-${VERSION}/lib/libschlussel-linux-x86_64.a\",
+          \"supportedTriples\": [\"x86_64-unknown-linux-gnu\"]
+        }"
+    FIRST=false
+fi
+
+if [ -f "${VERSION_DIR}/lib/libschlussel-linux-aarch64.a" ]; then
+    [ "$FIRST" = false ] && VARIANTS="${VARIANTS},"
+    VARIANTS="${VARIANTS}
+        {
+          \"path\": \"schlussel-${VERSION}/lib/libschlussel-linux-aarch64.a\",
+          \"supportedTriples\": [\"aarch64-unknown-linux-gnu\"]
+        }"
+    FIRST=false
+fi
+
 cat > "${BUNDLE_DIR}/info.json" << EOF
 {
   "schemaVersion": "1.0",
@@ -113,18 +146,7 @@ cat > "${BUNDLE_DIR}/info.json" << EOF
       "version": "${VERSION}",
       "type": "library",
       "variants": [
-        {
-          "path": "schlussel-${VERSION}/lib/libschlussel-macos.a",
-          "supportedTriples": ["x86_64-apple-macosx", "arm64-apple-macosx"]
-        },
-        {
-          "path": "schlussel-${VERSION}/lib/libschlussel-linux-x86_64.a",
-          "supportedTriples": ["x86_64-unknown-linux-gnu"]
-        },
-        {
-          "path": "schlussel-${VERSION}/lib/libschlussel-linux-aarch64.a",
-          "supportedTriples": ["aarch64-unknown-linux-gnu"]
-        }
+${VARIANTS}
       ]
     }
   }
