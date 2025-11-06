@@ -113,7 +113,10 @@ FIRST=true
 if [ -f "${VERSION_DIR}/lib/libschlussel-macos.a" ]; then
     VARIANTS="${VARIANTS}        {
           \"path\": \"schlussel-${VERSION}/lib/libschlussel-macos.a\",
-          \"supportedTriples\": [\"x86_64-apple-macosx\", \"arm64-apple-macosx\"]
+          \"supportedTriples\": [\"x86_64-apple-macosx\", \"arm64-apple-macosx\"],
+          \"staticLibraryMetadata\": {
+            \"headerPaths\": [\"schlussel-${VERSION}/include\"]
+          }
         }"
     FIRST=false
 fi
@@ -123,7 +126,10 @@ if [ -f "${VERSION_DIR}/lib/libschlussel-linux-x86_64.a" ]; then
     VARIANTS="${VARIANTS}
         {
           \"path\": \"schlussel-${VERSION}/lib/libschlussel-linux-x86_64.a\",
-          \"supportedTriples\": [\"x86_64-unknown-linux-gnu\"]
+          \"supportedTriples\": [\"x86_64-unknown-linux-gnu\"],
+          \"staticLibraryMetadata\": {
+            \"headerPaths\": [\"schlussel-${VERSION}/include\"]
+          }
         }"
     FIRST=false
 fi
@@ -133,7 +139,10 @@ if [ -f "${VERSION_DIR}/lib/libschlussel-linux-aarch64.a" ]; then
     VARIANTS="${VARIANTS}
         {
           \"path\": \"schlussel-${VERSION}/lib/libschlussel-linux-aarch64.a\",
-          \"supportedTriples\": [\"aarch64-unknown-linux-gnu\"]
+          \"supportedTriples\": [\"aarch64-unknown-linux-gnu\"],
+          \"staticLibraryMetadata\": {
+            \"headerPaths\": [\"schlussel-${VERSION}/include\"]
+          }
         }"
     FIRST=false
 fi
@@ -144,7 +153,7 @@ cat > "${BUNDLE_DIR}/info.json" << EOF
   "artifacts": {
     "schlussel": {
       "version": "${VERSION}",
-      "type": "library",
+      "type": "staticLibrary",
       "variants": [
 ${VARIANTS}
       ]
