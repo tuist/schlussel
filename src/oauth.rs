@@ -252,10 +252,7 @@ pub struct OAuthClient<S: SessionStorage> {
 impl<S: SessionStorage> OAuthClient<S> {
     /// Create a new OAuth client
     pub fn new(config: OAuthConfig, storage: Arc<S>) -> Self {
-        Self {
-            config,
-            storage,
-        }
+        Self { config, storage }
     }
 
     /// Create an HTTP client for making requests
@@ -268,7 +265,6 @@ impl<S: SessionStorage> OAuthClient<S> {
     fn create_http_client() -> Client {
         Client::new()
     }
-
 
     /// Complete authorization code flow with automatic callback server
     ///
@@ -377,10 +373,7 @@ impl<S: SessionStorage> OAuthClient<S> {
         }
 
         let http_client = Self::create_http_client();
-        let response = http_client
-            .post(device_endpoint)
-            .form(&params)
-            .send()?;
+        let response = http_client.post(device_endpoint).form(&params).send()?;
 
         // Safely drop client to avoid runtime issues in async contexts
         drop_client_safely(http_client);
