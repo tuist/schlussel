@@ -11,6 +11,20 @@ use std::sync::Arc;
 use std::thread;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
+/// Helper to safely drop blocking client in a blocking context
+///
+/// This prevents "Cannot drop a runtime in a context where blocking is not allowed" errors
+/// that occur when dropping reqwest::blocking::Client in async contexts.
+///
+/// **Implementation Note**: We intentionally leak the client using `std::mem::forget` because:
+/// 1. The reqwest blocking client creates an internal tokio runtime
+/// 2. Dropping that runtime in an async context causes panics
+/// 3. For CLI applications, leaking a small HTTP client is acceptable
+/// 4. The OS will clean up resources when the process exits anyway
+fn drop_client_safely(client: Client) {
+    std::mem::forget(client);
+}
+
 /// OAuth 2.0 configuration
 #[derive(Debug, Clone)]
 pub struct OAuthConfig {
@@ -233,17 +247,23 @@ struct ErrorResponse {
 pub struct OAuthClient<S: SessionStorage> {
     config: OAuthConfig,
     storage: Arc<S>,
-    http_client: Client,
 }
 
 impl<S: SessionStorage> OAuthClient<S> {
     /// Create a new OAuth client
     pub fn new(config: OAuthConfig, storage: Arc<S>) -> Self {
-        Self {
-            config,
-            storage,
-            http_client: Client::new(),
-        }
+        Self { config, storage }
+    }
+
+    /// Create an HTTP client for making requests
+    ///
+    /// This must be called from a non-async context because reqwest::blocking::Client::new()
+    /// creates an internal tokio runtime, which is not allowed in async contexts.
+    ///
+    /// This method is private and only called from methods that are already running
+    /// in blocking contexts (authorize, authorize_device, exchange_code, refresh_token).
+    fn create_http_client() -> Client {
+        Client::new()
     }
 
     /// Complete authorization code flow with automatic callback server
@@ -352,11 +372,11 @@ impl<S: SessionStorage> OAuthClient<S> {
             params.push(("scope", scope.as_str()));
         }
 
-        let response = self
-            .http_client
-            .post(device_endpoint)
-            .form(&params)
-            .send()?;
+        let http_client = Self::create_http_client();
+        let response = http_client.post(device_endpoint).form(&params).send()?;
+
+        // Safely drop client to avoid runtime issues in async contexts
+        drop_client_safely(http_client);
 
         if !response.status().is_success() {
             let error: ErrorResponse = response.json()?;
@@ -408,11 +428,14 @@ impl<S: SessionStorage> OAuthClient<S> {
                 ("grant_type", "urn:ietf:params:oauth:grant-type:device_code"),
             ];
 
-            let response = self
-                .http_client
+            let http_client = Self::create_http_client();
+            let response = http_client
                 .post(&self.config.token_endpoint)
                 .form(&params)
                 .send()?;
+
+            // Safely drop client
+            drop_client_safely(http_client);
 
             if response.status().is_success() {
                 let token_response: TokenResponse = response.json()?;
@@ -465,11 +488,14 @@ impl<S: SessionStorage> OAuthClient<S> {
             ("code_verifier", session.code_verifier.as_str()),
         ];
 
-        let response = self
-            .http_client
+        let http_client = Self::create_http_client();
+        let response = http_client
             .post(&self.config.token_endpoint)
             .form(&params)
             .send()?;
+
+        // Safely drop client
+        drop_client_safely(http_client);
 
         if !response.status().is_success() {
             let error: ErrorResponse = response.json()?;
@@ -497,11 +523,14 @@ impl<S: SessionStorage> OAuthClient<S> {
             ("refresh_token", refresh_token),
         ];
 
-        let response = self
-            .http_client
+        let http_client = Self::create_http_client();
+        let response = http_client
             .post(&self.config.token_endpoint)
             .form(&params)
             .send()?;
+
+        // Safely drop client
+        drop_client_safely(http_client);
 
         if !response.status().is_success() {
             let error: ErrorResponse = response.json()?;
@@ -570,6 +599,7 @@ impl<S: SessionStorage> OAuthClient<S> {
 ///
 /// Ensures only one refresh happens at a time for a given token key,
 /// both within the same process and across multiple processes.
+#[derive(Clone)]
 pub struct TokenRefresher<S: SessionStorage> {
     client: Arc<OAuthClient<S>>,
     refresh_in_progress: Arc<Mutex<HashMap<String, bool>>>,

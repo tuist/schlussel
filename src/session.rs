@@ -100,7 +100,7 @@ pub trait SessionStorage: Send + Sync {
 ///
 /// Thread-safe in-memory storage for sessions and tokens.
 /// Suitable for testing and simple use cases.
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct MemoryStorage {
     sessions: Arc<RwLock<HashMap<String, Session>>>,
     tokens: Arc<RwLock<HashMap<String, Token>>>,
@@ -156,7 +156,7 @@ impl SessionStorage for MemoryStorage {
 ///
 /// Stores sessions and tokens in JSON files following XDG Base Directory specification.
 /// Tokens are organized by domain for better security and organization.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct FileStorage {
     base_path: PathBuf,
 }
@@ -389,7 +389,7 @@ impl SessionStorage for FileStorage {
 ///
 /// Tokens are stored encrypted by the OS, providing better security
 /// than plain file storage.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct SecureStorage {
     app_name: String,
     /// Fallback file storage for sessions (sessions are temporary, less critical)
