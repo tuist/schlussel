@@ -164,8 +164,12 @@ pub struct FileStorage {
 impl FileStorage {
     /// Create a new file storage instance with a custom application name
     ///
-    /// Uses XDG_DATA_HOME (or ~/.local/share on Linux/macOS, AppData on Windows)
-    /// to store credentials in <app_name>/
+    /// Respects XDG Base Directory Specification on Unix systems:
+    /// - Checks $XDG_DATA_HOME environment variable first
+    /// - Falls back to $HOME/.local/share on Linux/macOS
+    /// - Uses AppData on Windows
+    ///
+    /// Stores credentials in <data_dir>/<app_name>/
     ///
     /// # Arguments
     ///
@@ -177,12 +181,17 @@ impl FileStorage {
     /// use schlussel::session::FileStorage;
     ///
     /// let storage = FileStorage::new("my-app").unwrap();
-    /// // Stores data in ~/.local/share/my-app/ (on Linux/macOS)
+    /// // Stores data in $XDG_DATA_HOME/my-app/ or ~/.local/share/my-app/ (on Linux/macOS)
     /// ```
     pub fn new(app_name: &str) -> Result<Self, String> {
-        let base_path = dirs::data_dir()
-            .ok_or_else(|| "Could not determine data directory".to_string())?
-            .join(app_name);
+        // Check XDG_DATA_HOME first (XDG Base Directory Specification compliance)
+        let base_dir = if let Ok(xdg_data) = std::env::var("XDG_DATA_HOME") {
+            PathBuf::from(xdg_data)
+        } else {
+            dirs::data_dir().ok_or_else(|| "Could not determine data directory".to_string())?
+        };
+
+        let base_path = base_dir.join(app_name);
 
         fs::create_dir_all(&base_path)
             .map_err(|e| format!("Failed to create storage directory: {}", e))?;
@@ -794,5 +803,32 @@ mod tests {
         // Verify deletion
         let deleted = storage.get_session("test-state").unwrap();
         assert!(deleted.is_none());
+    }
+
+    #[test]
+    fn test_xdg_data_home_respected() {
+        use std::env;
+
+        // Save current XDG_DATA_HOME if it exists
+        let original_xdg = env::var("XDG_DATA_HOME").ok();
+
+        // Set custom XDG_DATA_HOME
+        let temp_dir = env::temp_dir().join(format!("test_xdg_{}", rand::random::<u32>()));
+        env::set_var("XDG_DATA_HOME", &temp_dir);
+
+        // Create FileStorage - should use XDG_DATA_HOME
+        let storage = FileStorage::new("test-app").unwrap();
+
+        // Verify it used XDG_DATA_HOME
+        assert!(storage.base_path.starts_with(&temp_dir));
+        assert_eq!(storage.base_path, temp_dir.join("test-app"));
+
+        // Clean up
+        if let Some(original) = original_xdg {
+            env::set_var("XDG_DATA_HOME", original);
+        } else {
+            env::remove_var("XDG_DATA_HOME");
+        }
+        let _ = std::fs::remove_dir_all(temp_dir);
     }
 }
