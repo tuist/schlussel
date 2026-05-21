@@ -6,6 +6,12 @@ on:
   pull_request:
     branches: [ main ]
 
+env:
+  MISE_AUTO_INSTALL: "false"
+  MISE_TASK_RUN_AUTO_INSTALL: "false"
+  MISE_NOT_FOUND_AUTO_INSTALL: "false"
+  MISE_EXEC_AUTO_INSTALL: "false"
+
 jobs:
   test:
     name: Test
@@ -16,16 +22,28 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Zig
-        uses: mlugg/setup-zig@v2
+      - uses: jdx/mise-action@c37c93293d6b742fc901e1406b8f764f6fb19dac # v2
         with:
-          version: 0.15.2
-
-      - name: Build
-        run: zig build
+          install_args: "rust"
 
       - name: Run tests
-        run: zig build test
+        run: cargo test
+
+  e2e:
+    name: E2E
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: jdx/mise-action@c37c93293d6b742fc901e1406b8f764f6fb19dac # v2
+        with:
+          install_args: "rust shellspec"
+
+      - name: Build E2E binaries
+        run: cargo build --workspace
+
+      - name: Run ShellSpec
+        run: shellspec
 
   fmt:
     name: Format
@@ -33,10 +51,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Zig
-        uses: mlugg/setup-zig@v2
+      - uses: jdx/mise-action@c37c93293d6b742fc901e1406b8f764f6fb19dac # v2
         with:
-          version: 0.15.2
+          install_args: "rust"
+
+      - name: Install rustfmt
+        run: rustup component add rustfmt
 
       - name: Check formatting
-        run: zig fmt --check src/
+        run: cargo fmt --check

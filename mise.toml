@@ -1,7 +1,15 @@
 [tools]
-zig = "0.15.2"
+rust = "1.86"
+shellspec = "latest"
 node = "24"
 pnpm = "latest"
 "git-cliff" = "2.7.0"
-"github:pepicrft/gesttalt" = "latest"
+"github:tuist/blick" = "0.8.0"
 "npm:wrangler" = "3"
+
+[env]
+CARGO_TERM_COLOR = "always"
+CARGO_INCREMENTAL = "0"
+CARGO_PROFILE_DEV_DEBUG = "line-tables-only"
+CARGO_PROFILE_TEST_DEBUG = "line-tables-only"
+RUST_BACKTRACE = "1"

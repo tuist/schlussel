@@ -1,4 +1,7 @@
-# Zig build artifacts
+# Rust build artifacts
+target/
+
+# Zig build artifacts kept only while the legacy sources remain
 zig-cache/
 zig-out/
 .zig-cache/
@@ -32,6 +35,8 @@ Thumbs.db
 
 # Mise
 .mise.lock
+.shellspec-quick.log
+file
 
 
 website/build/

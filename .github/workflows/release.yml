@@ -14,6 +14,12 @@ permissions:
   contents: write
   pull-requests: read
 
+env:
+  MISE_AUTO_INSTALL: "false"
+  MISE_TASK_RUN_AUTO_INSTALL: "false"
+  MISE_NOT_FOUND_AUTO_INSTALL: "false"
+  MISE_EXEC_AUTO_INSTALL: "false"
+
 jobs:
   check-release:
     name: Check for releasable changes
@@ -27,7 +33,9 @@ jobs:
         with:
           fetch-depth: 0
 
-      - uses: jdx/mise-action@v2
+      - uses: jdx/mise-action@c37c93293d6b742fc901e1406b8f764f6fb19dac # v2
+        with:
+          install_args: "git-cliff"
 
       - name: Check if there are releasable changes
         id: is-releasable
@@ -71,44 +79,42 @@ jobs:
   # Build CLI binaries
   # ===========================================================================
   build-cli:
-    name: Build CLI (${{ matrix.target }})
+    name: Build CLI (${{ matrix.artifact }})
     needs: check-release
     if: needs.check-release.outputs.should-release == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         include:
-          - target: x86_64-linux
+          - os: ubuntu-latest
             artifact: schlussel-x86_64-linux
-          - target: aarch64-linux
-            artifact: schlussel-aarch64-linux
-          - target: x86_64-macos
-            artifact: schlussel-x86_64-macos
-          - target: aarch64-macos
-            artifact: schlussel-aarch64-macos
-          - target: x86_64-windows
+            ext: ""
+          - os: macos-latest
+            artifact: schlussel-native-macos
+            ext: ""
+          - os: windows-latest
             artifact: schlussel-x86_64-windows
-            ext: .exe
-          - target: aarch64-windows
-            artifact: schlussel-aarch64-windows
             ext: .exe
     steps:
       - uses: actions/checkout@v4
 
-      - uses: jdx/mise-action@v2
+      - uses: jdx/mise-action@c37c93293d6b742fc901e1406b8f764f6fb19dac # v2
+        with:
+          install_args: "rust"
 
       - name: Build release binary
-        run: zig build -Doptimize=ReleaseFast -Dtarget=${{ matrix.target }}
+        run: cargo build --release --bin schlussel
 
       - name: Package binary
+        shell: bash
         run: |
           mkdir -p dist
           cd dist
-          if [[ "${{ matrix.target }}" == *"windows"* ]]; then
-            cp ../zig-out/bin/schlussel.exe schlussel.exe
+          if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
+            cp ../target/release/schlussel.exe schlussel.exe
             zip ${{ matrix.artifact }}.zip schlussel.exe
           else
-            cp ../zig-out/bin/schlussel schlussel
+            cp ../target/release/schlussel schlussel
             tar -czvf ${{ matrix.artifact }}.tar.gz schlussel
           fi
 
@@ -138,7 +144,9 @@ jobs:
         with:
           fetch-depth: 0
 
-      - uses: jdx/mise-action@v2
+      - uses: jdx/mise-action@c37c93293d6b742fc901e1406b8f764f6fb19dac # v2
+        with:
+          install_args: "git-cliff"
 
       - name: Download all artifacts
         uses: actions/download-artifact@v4

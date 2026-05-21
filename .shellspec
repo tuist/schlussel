@@ -1,0 +1,6 @@
+--default-path e2e
+--helperdir e2e
+--require spec_helper
+--format documentation
+--shell bash
+--random examples

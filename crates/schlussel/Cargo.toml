@@ -1,0 +1,27 @@
+[package]
+name = "schlussel"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+base64.workspace = true
+directories.workspace = true
+fs4.workspace = true
+include_dir.workspace = true
+keyring.workspace = true
+rand.workspace = true
+reqwest.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+serde_urlencoded.workspace = true
+sha2.workspace = true
+tempfile.workspace = true
+thiserror.workspace = true
+url.workspace = true
+webbrowser.workspace = true
+
+[lints]
+workspace = true

@@ -2,65 +2,64 @@
 
 ## Project Overview
 
-Schlussel is a cross-platform OAuth 2.0 library with PKCE and Device Code Flow support, written in Zig. It's designed for command-line and desktop applications and provides secure token storage using OS credential managers.
+Schlussel is a cross-platform OAuth 2.0 library with PKCE and Device Code Flow support, now centered on a Rust workspace. It is designed for command-line applications and agent runtimes, with formula-driven provider definitions, token persistence, and automatic refresh.
 
 ## Documentation Notes
 
 - Keep `README.md` aligned with the current public API and CLI behavior.
-- Keep public doc comments in `src/lib.zig`, `src/oauth.zig`, and `include/schlussel.h` accurate when changing interfaces.
-- Prefer updating source comments over maintaining parallel hand-written API docs. Generated docs come from `zig build docs`.
+- Keep public doc comments in `crates/schlussel/src/*.rs` accurate when changing interfaces.
+- If you touch legacy Zig or FFI reference material, keep `src/*.zig` and `include/schlussel.h` accurate too.
 
 ## Core Architecture
 
 ### Key Modules
 
-1. **PKCE Module** (`src/pkce.zig`)
+1. **PKCE Module** (`crates/schlussel/src/pkce.rs`)
    - Generates cryptographically secure code verifiers and challenges
    - Uses SHA256 for challenge generation
    - Base64 URL-safe encoding without padding
 
-2. **Session Management** (`src/session.zig`)
-   - Interface-based storage (`SessionStorage`)
+2. **Session Management** (`crates/schlussel/src/session.rs`)
+   - Trait-based storage (`SessionStorage`)
    - Three built-in backends: `SecureStorage`, `FileStorage`, `MemoryStorage`
-   - Thread-safe with mutex protection
-   - Domain-based file organization
+   - File-backed tokens for the CLI and keyring-backed secure storage for library users
+   - Stable storage-key format: `{formula}:{method}:{identity}`
 
-3. **OAuth Flow** (`src/oauth.zig`)
-   - Device Code Flow (RFC 8628)
+3. **OAuth Flow** (`crates/schlussel/src/oauth.rs`)
+   - Device Code Flow (RFC 8628) for CLI applications
    - Authorization Code Flow with PKCE
    - Automatic browser opening and callback handling
-   - Token refresh with HTTP client
-   - Provider presets (GitHub, Google, Microsoft, GitLab, Tuist)
+   - Token refresh with an HTTP client
+   - Provider presets and formula-driven configuration
 
-4. **Token Refresher** (`src/oauth.zig`)
+4. **Token Refresher** (`crates/schlussel/src/oauth.rs`)
    - In-process locking (threads)
    - Cross-process locking (file-based)
-   - Automatic token refresh (`getValidToken`)
+   - Automatic token refresh (`get_valid_token`)
    - Proactive refresh with thresholds
 
-5. **Callback Server** (`src/callback.zig`)
+5. **Callback Server** (`crates/schlussel/src/callback.rs`)
    - Local HTTP server for OAuth redirects
    - Random port assignment
    - HTML success/error pages
 
-6. **Cross-Process Locking** (`src/lock.zig`)
+6. **Cross-Process Locking** (`crates/schlussel/src/lock.rs`)
    - File-based locks
    - RAII lock guards
-   - Check-then-refresh pattern
+   - Check-then-refresh coordination
 
-7. **FFI Layer** (`src/ffi.zig`)
-   - C-compatible API for Swift/Objective-C
-   - Opaque pointers for type safety
-   - Error codes instead of error unions
+7. **Formulas and Scripts**
+   - Bundled provider formulas live in `src/formulas/*.json`
+   - Script resolution lives in `crates/schlussel/src/script.rs`
+   - The CLI surface lives in `crates/schlussel-cli/src/main.rs`
 
 ## Development Guidelines
 
 ### Code Style
 
-- Follow Zig standard conventions (`zig fmt`)
-- Use `const` by default
-- Document public APIs with doc comments (`///`)
-- Add examples to doc comments when useful
+- Follow Rust standard conventions (`cargo fmt`)
+- Keep crate roots small and push implementation into focused modules
+- Document public APIs when the usage is not obvious
 
 ### Commits
 
@@ -75,25 +74,31 @@ Follow the [Conventional Commits](https://www.conventionalcommits.org/) specific
 
 ### Testing
 
-- Unit tests inline in modules
-- Run: `zig build test`
+- Unit tests live next to the Rust modules they cover
+- End-to-end CLI coverage lives under `e2e/` and runs through ShellSpec against a local OAuth server
+- Run: `mise exec -- cargo test --workspace`
+- Run: `shellspec`
 - All tests must pass before committing
-- Add tests for new features
-- Use `std.testing.allocator` to detect memory leaks
 
 ### Building
 
-- Development: `zig build`
-- Run tests: `zig build test`
-- Examples: `zig build example-github-device`
-- Format: `zig fmt src/`
+- Development: `mise exec -- cargo build --workspace`
+- Run tests: `mise exec -- cargo test --workspace`
+- Format: `mise exec -- cargo fmt`
+
+### CI Requirements
+
+All PRs must pass:
+- Cargo tests on Ubuntu, macOS, Windows
+- ShellSpec e2e coverage on Ubuntu
+- `cargo fmt --check`
 
 ## Important Design Decisions
 
 ### 1. Security First
 
-- **SecureStorage is the default recommendation** for production
-- FileStorage has warnings about plaintext storage
+- **SecureStorage is the library default recommendation** for production hosts that want OS credential managers
+- The CLI uses `FileStorage` so tokens can be enumerated, filtered, and deleted by key
 - Always use PKCE for OAuth flows
 - Cross-process locking prevents refresh races
 
@@ -102,10 +107,11 @@ Follow the [Conventional Commits](https://www.conventionalcommits.org/) specific
 - Primary flow for CLI applications
 - Simpler UX than a callback server in headless environments
 - Works in remote and terminal-only setups
+- Falls back to callback flow when Device Code is unavailable
 
 ### 3. Automatic Token Refresh
 
-- `getValidToken()` eliminates manual expiration checking
+- `get_valid_token()` eliminates manual expiration checking
 - Proactive refresh uses configurable thresholds
 - Refreshes are safe across concurrent processes when locking is enabled
 
@@ -119,54 +125,64 @@ Follow the [Conventional Commits](https://www.conventionalcommits.org/) specific
 
 Three built-in backends:
 - **SecureStorage**: Production (OS keychain/credential manager)
-- **FileStorage**: Development and debugging
+- **FileStorage**: CLI and development storage
 - **MemoryStorage**: Testing
+
+### 6. Cross-Process Coordination
+
+- File-based locks operate at the refresh level instead of the storage-root level
+- Refresh paths use a check-then-refresh pattern to avoid duplicate token exchanges
+- File-backed token saves use atomic replacement
 
 ## Common Tasks
 
 ### Adding a New Provider Preset
 
-1. Add a method to `OAuthConfig` in `src/oauth.zig`
-2. Add tests to verify endpoints and behavior
-3. Update `README.md` if the new preset is part of the public surface
+1. Add the configuration in `crates/schlussel/src/oauth.rs` or the bundled formula set.
+2. Add tests to verify endpoints and behavior.
+3. Update `README.md` if the change is part of the public surface.
 
 ### Adding a New Storage Backend
 
-1. Implement `SessionStorage` in `src/session.zig`
-2. Add tests
-3. Add an example if the backend needs non-obvious setup
+1. Implement `SessionStorage` in `crates/schlussel/src/session.rs`.
+2. Add tests.
+3. Add or update CLI and e2e coverage if the storage is user-visible.
 
-### Adding FFI Functions
+### Touching Legacy Zig or FFI Code
 
-1. Add the export to `src/ffi.zig`
-2. Update `include/schlussel.h`
-3. Test on all supported platforms
+1. Keep the Zig reference implementation consistent enough to read and compare during migration work.
+2. Update `include/schlussel.h` when C-facing interfaces change.
+3. Call out any divergence between the Rust runtime and the legacy Zig reference.
 
 ## Security Considerations
 
-1. **Secure Storage**: Recommend `SecureStorage` for production
-2. **PKCE Required**: Do not allow non-PKCE OAuth flows
-3. **State Validation**: Always verify the state parameter
-4. **HTTPS Only**: Validate endpoints use HTTPS except localhost callbacks
-5. **Token Expiration**: Use `getValidToken()` for automatic checks
-6. **Cross-Process Safety**: Use file locking when multiple processes might run
+1. **Secure Storage**: Recommend `SecureStorage` for production.
+2. **PKCE Required**: Do not allow non-PKCE OAuth flows.
+3. **State Validation**: Always verify the state parameter.
+4. **HTTPS Only**: Validate endpoints use HTTPS except localhost callbacks.
+5. **Token Expiration**: Use `get_valid_token()` for automatic checks.
+6. **Cross-Process Safety**: Use file locking when multiple processes might run.
 
 ## Platform-Specific Notes
 
+### Legacy Zig Sources
+
+- The legacy Zig implementation remains in the repository as migration reference material.
+- New work should target the Rust workspace unless a task explicitly says otherwise.
+
 ### macOS
 
-- SecureStorage uses Keychain
-- XCFramework support for Swift/iOS
+- SecureStorage uses Keychain.
 
 ### Windows
 
-- SecureStorage uses Credential Manager
-- File locking uses different error codes
+- SecureStorage uses Credential Manager.
+- File locking uses different error codes.
 
 ### Linux
 
-- SecureStorage requires libsecret
-- File paths follow the XDG Base Directory specification
+- SecureStorage requires libsecret.
+- File paths follow the XDG Base Directory specification.
 
 ## References
 

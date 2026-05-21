@@ -1,0 +1,66 @@
+{
+  "schema": "v2",
+  "id": "gitlab",
+  "label": "GitLab",
+  "description": "Authenticate with GitLab using OAuth device code flow or personal access tokens. Access projects, issues, and CI/CD.",
+  "clients": [
+    {
+      "name": "gitlab-cli",
+      "id": "dummy",
+      "secret": "",
+      "type": "public",
+      "source": "https://gitlab.com/gitlab-org/cli",
+      "methods": ["device_code", "token"]
+    }
+  ],
+  "identity": {
+    "label": "Instance",
+    "hint": "e.g., gitlab.com or self-hosted instance"
+  },
+  "methods": {
+    "device_code": {
+      "label": "Device Code",
+      "endpoints": {
+        "device_authorization": "https://{instance}/oauth/device/authorize",
+        "token": "https://{instance}/oauth/token"
+      },
+      "scope": "api read_user read_repository",
+      "register": {
+        "url": "https://{instance}/-/user_settings/personal_access_tokens",
+        "steps": [
+          "Go to User Settings > Personal Access Tokens",
+          "Create a token with required scopes (api, read_user, read_repository)",
+          "Copy the token"
+        ]
+      },
+      "script": [
+        { "type": "open_url", "value": "{authorize_url}" },
+        { "type": "wait_for_user_code" }
+      ]
+    },
+    "token": {
+      "label": "Personal Access Token",
+      "register": {
+        "url": "https://{instance}/-/user_settings/personal_access_tokens",
+        "steps": [
+          "Go to User Settings > Personal Access Tokens",
+          "Create a token with api scope",
+          "Copy the token"
+        ]
+      },
+      "script": [
+        { "type": "copy_key", "note": "Paste your GitLab personal access token" }
+      ]
+    }
+  },
+  "apis": {
+    "rest": {
+      "base_url": "https://{instance}/api/v4",
+      "auth_header": "PRIVATE-TOKEN: {token}",
+      "docs_url": "https://docs.gitlab.com/ee/api/rest",
+      "spec_url": "",
+      "spec_type": "openapi",
+      "methods": ["device_code", "token"]
+    }
+  }
+}
