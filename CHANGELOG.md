@@ -1,5 +1,12 @@
 
 
+### Feat
+
+- Add json/toon output formats and Tuist token discovery ([#36](https://github.com/pepicrft/schlussel/pull/36)) by [@pepicrft](https://github.com/pepicrft)
+
+
+**Full Changelog**: https://github.com/pepicrft/schlussel/compare/0.16.1..0.17.0
+
 ### Chore
 
 - Remove legacy Zig implementation by [@pepicrft](https://github.com/pepicrft)
