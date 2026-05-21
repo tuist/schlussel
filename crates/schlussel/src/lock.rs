@@ -1,4 +1,5 @@
 use std::fs::{self, File, OpenOptions};
+use std::io;
 use std::path::{Path, PathBuf};
 
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
@@ -69,7 +70,7 @@ impl RefreshLock {
         };
 
         if let Err(error) = outcome {
-            return Err(if error.kind() == std::io::ErrorKind::WouldBlock {
+            return Err(if is_lock_contention(&error) {
                 SchlusselError::Lock("would block".to_string())
             } else {
                 SchlusselError::Lock(error.to_string())
@@ -92,11 +93,16 @@ impl RefreshLock {
 
     pub fn release(&mut self) -> Result<()> {
         if let Some(file) = self.file.take() {
-            file.unlock()
-                .map_err(|error| SchlusselError::Lock(error.to_string()))?;
+            FileExt::unlock(&file).map_err(|error| SchlusselError::Lock(error.to_string()))?;
         }
         Ok(())
     }
+}
+
+fn is_lock_contention(error: &io::Error) -> bool {
+    error.kind() == io::ErrorKind::WouldBlock
+        // Windows reports a lock violation here instead of WouldBlock.
+        || error.raw_os_error() == Some(33)
 }
 
 impl Drop for RefreshLock {
