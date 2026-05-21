@@ -2,13 +2,13 @@
 
 ## Project Overview
 
-Schlussel is a cross-platform OAuth 2.0 library with PKCE and Device Code Flow support, written in Zig. It's specifically designed for command-line applications and provides secure token storage using OS credential managers.
+Schlussel is a cross-platform OAuth 2.0 library with PKCE and Device Code Flow support, written in Zig. It's designed for command-line and desktop applications and provides secure token storage using OS credential managers.
 
-## Website Notes
+## Documentation Notes
 
-- Keep the example formula snippet in `website/theme/layouts/index.liquid` aligned with the JSON schema and the current contents of `src/formulas/claude.json`.
-- Keep the skill page (`website/src/skill.md`) up to date when modifying formula schemas or the CLI interface. This file serves as agent instructions and is accessible at https://schlussel.me/skill.md
-- Keep the documentation page (`website/src/html.ts` - `renderDocsPage` function) up to date when modifying the formula schema or CLI interface. The docs page documents the formula specification and CLI commands at https://schlussel.me/docs
+- Keep `README.md` aligned with the current public API and CLI behavior.
+- Keep public doc comments in `src/lib.zig`, `src/oauth.zig`, and `include/schlussel.h` accurate when changing interfaces.
+- Prefer updating source comments over maintaining parallel hand-written API docs. Generated docs come from `zig build docs`.
 
 ## Core Architecture
 
@@ -26,7 +26,7 @@ Schlussel is a cross-platform OAuth 2.0 library with PKCE and Device Code Flow s
    - Domain-based file organization
 
 3. **OAuth Flow** (`src/oauth.zig`)
-   - Device Code Flow (RFC 8628) - primary for CLI apps
+   - Device Code Flow (RFC 8628)
    - Authorization Code Flow with PKCE
    - Automatic browser opening and callback handling
    - Token refresh with HTTP client
@@ -60,11 +60,11 @@ Schlussel is a cross-platform OAuth 2.0 library with PKCE and Device Code Flow s
 - Follow Zig standard conventions (`zig fmt`)
 - Use `const` by default
 - Document public APIs with doc comments (`///`)
-- Add examples to doc comments
+- Add examples to doc comments when useful
 
 ### Commits
 
-Follow the [Conventional Commits](https://www.conventionalcommits.org/) specification for commit messages:
+Follow the [Conventional Commits](https://www.conventionalcommits.org/) specification:
 - `feat:` for new features
 - `fix:` for bug fixes
 - `docs:` for documentation changes
@@ -88,95 +88,85 @@ Follow the [Conventional Commits](https://www.conventionalcommits.org/) specific
 - Examples: `zig build example-github-device`
 - Format: `zig fmt src/`
 
-### CI Requirements
-
-All PRs must pass:
-- Tests on Ubuntu, macOS, Windows
-- `zig fmt --check src/`
-
 ## Important Design Decisions
 
 ### 1. Security First
 
-- **SecureStorage is default recommendation** - uses OS credential managers
+- **SecureStorage is the default recommendation** for production
 - FileStorage has warnings about plaintext storage
 - Always use PKCE for OAuth flows
-- Cross-process locking prevents race conditions
+- Cross-process locking prevents refresh races
 
 ### 2. Device Code Flow Priority
 
 - Primary flow for CLI applications
-- Simpler UX than callback server
-- Works in headless/remote environments
-- Falls back to callback flow when Device Code not supported
+- Simpler UX than a callback server in headless environments
+- Works in remote and terminal-only setups
 
 ### 3. Automatic Token Refresh
 
 - `getValidToken()` eliminates manual expiration checking
-- Proactive refresh with configurable thresholds
-- Cross-process safe when using file locking
+- Proactive refresh uses configurable thresholds
+- Refreshes are safe across concurrent processes when locking is enabled
 
 ### 4. Provider Presets
 
-- One-line configuration for popular providers
-- Reduces errors from manual endpoint configuration
+- One-line configuration for common providers
+- Reduces endpoint and redirect configuration mistakes
 - Self-hosted instance support where applicable
 
 ### 5. Storage Abstraction
 
 Three built-in backends:
 - **SecureStorage**: Production (OS keychain/credential manager)
-- **FileStorage**: Development (JSON files)
-- **MemoryStorage**: Testing (in-memory)
-
-### 6. Cross-Process Coordination
-
-- File-based locks at refresh level (not storage level)
-- Check-then-refresh pattern to avoid redundant HTTP requests
-- RAII lock guards with automatic cleanup
+- **FileStorage**: Development and debugging
+- **MemoryStorage**: Testing
 
 ## Common Tasks
 
 ### Adding a New Provider Preset
 
-1. Add method to `OAuthConfig` in `src/oauth.zig`
-2. Add test to verify endpoints
-3. Update README.md if it's a major provider
+1. Add a method to `OAuthConfig` in `src/oauth.zig`
+2. Add tests to verify endpoints and behavior
+3. Update `README.md` if the new preset is part of the public surface
 
 ### Adding a New Storage Backend
 
-1. Implement `SessionStorage` interface in `src/session.zig`
+1. Implement `SessionStorage` in `src/session.zig`
 2. Add tests
-3. Add example to `examples/`
+3. Add an example if the backend needs non-obvious setup
 
 ### Adding FFI Functions
 
-1. Add to `src/ffi.zig` with `export` keyword
+1. Add the export to `src/ffi.zig`
 2. Update `include/schlussel.h`
-3. Test on all platforms
+3. Test on all supported platforms
 
 ## Security Considerations
 
-1. **Secure Storage**: Always recommend `SecureStorage` for production
-2. **PKCE Required**: Never allow non-PKCE flows
-3. **State Validation**: Always verify state parameter
-4. **HTTPS Only**: Validate endpoints use HTTPS (except localhost)
-5. **Token Expiration**: Use `getValidToken()` for automatic checking
+1. **Secure Storage**: Recommend `SecureStorage` for production
+2. **PKCE Required**: Do not allow non-PKCE OAuth flows
+3. **State Validation**: Always verify the state parameter
+4. **HTTPS Only**: Validate endpoints use HTTPS except localhost callbacks
+5. **Token Expiration**: Use `getValidToken()` for automatic checks
 6. **Cross-Process Safety**: Use file locking when multiple processes might run
 
 ## Platform-Specific Notes
 
 ### macOS
+
 - SecureStorage uses Keychain
 - XCFramework support for Swift/iOS
 
 ### Windows
+
 - SecureStorage uses Credential Manager
 - File locking uses different error codes
 
 ### Linux
+
 - SecureStorage requires libsecret
-- XDG Base Directory specification for file paths
+- File paths follow the XDG Base Directory specification
 
 ## References
 

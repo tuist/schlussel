@@ -1,87 +1,80 @@
-# 🔑 Schlussel
+# Schlussel
 
-**Authentication runtime for agents and CLI applications**
+Cross-platform OAuth 2.0 library for command-line and desktop applications.
 
-Authenticate with APIs without copying tokens or managing credentials manually. Schlussel handles OAuth flows, token storage, and automatic refresh so you can focus on building.
+Schlussel handles PKCE, Device Code Flow, callback-based authorization, token
+storage, and refresh coordination so applications can integrate OAuth without
+rebuilding the plumbing every time.
 
-## ✨ Features
+## Features
 
-- 🔐 **Multiple OAuth methods** - Device code flow, authorization code with PKCE
-- 🔄 **Automatic refresh** - OAuth2 tokens are refreshed automatically when expired
-- 🔒 **Cross-process safe** - Multiple processes can safely access and refresh tokens
-- 🌍 **Cross-platform** - Linux, macOS, Windows on x86_64 and ARM64
+- PKCE support compliant with RFC 7636
+- Device Code Flow support compliant with RFC 8628
+- Authorization Code Flow with a local callback server
+- Dynamic client registration support
+- Secure token storage through OS credential managers
+- Cross-process-safe token refresh locking
+- Provider presets for common OAuth platforms
 
-## 📦 Installation
-
-Install via [mise](https://mise.jdx.dev/):
+## Build
 
 ```bash
-mise use -g github:pepicrft/schlussel
+zig build
+zig build test
+zig build docs
 ```
 
-## 🚀 Usage
+## Library Usage
 
-### Authenticate with a service
+```zig
+const schlussel = @import("schlussel");
 
-```bash
-schlussel run github --method device_code --identity personal
+var storage = schlussel.MemoryStorage.init(allocator);
+defer storage.deinit();
+
+const config = schlussel.OAuthConfig.github("your-client-id", "repo user");
+var client = schlussel.OAuthClient.init(allocator, config, storage.storage());
+defer client.deinit();
+
+var token = try client.authorizeDevice();
+defer token.deinit();
 ```
 
-This opens a browser, handles the OAuth flow, and stores the token securely in your OS credential manager.
+## CLI
 
-### Use the token
-
-```bash
-TOKEN=$(schlussel token get --formula github --method device_code --identity personal)
-curl -H "Authorization: Bearer $TOKEN" https://api.github.com/user
-```
-
-### Manage tokens
+The bundled CLI is a small token storage helper.
 
 ```bash
-# List all stored tokens
+# List stored keys
 schlussel token list
 
-# List tokens for a specific service
-schlussel token list --formula github
+# Filter by prefix
+schlussel token list --key my-app:
 
-# Delete a token
-schlussel token delete --formula github --method device_code --identity personal
+# Read a stored token
+schlussel token get --key my-app:primary
+
+# Delete a stored token
+schlussel token delete --key my-app:primary
 ```
 
-## 🔌 Available Services
+## Documentation
 
-Query the API for available formulas:
+API documentation is generated locally from source comments:
 
 ```bash
-curl https://schlussel.me/api/formulas
+zig build docs
 ```
 
-Or get details for a specific service:
+## Contributing
 
-```bash
-curl https://schlussel.me/api/formulas/github
-```
-
-## 📚 Documentation
-
-Full documentation available at [schlussel.me/docs](https://schlussel.me/docs)
-
-## 🤝 Contributing
-
-Contributions welcome! Please ensure tests pass and code is formatted:
+Run the test suite and format checks before sending changes:
 
 ```bash
 zig build test
 zig fmt --check src/
 ```
 
-### Adding a new formula
+## License
 
-1. Create a JSON file in `src/formulas/` (use existing formulas as reference)
-2. Run `zig build test` to validate the schema
-3. Submit a pull request
-
-## 📄 License
-
-See [LICENSE](LICENSE) for details.
+See [LICENSE](LICENSE).
