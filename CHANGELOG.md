@@ -2,6 +2,13 @@
 
 ### Fix
 
+- Keep release commits clean by [@pepicrft](https://github.com/pepicrft)
+
+
+**Full Changelog**: https://github.com/pepicrft/schlussel/compare/0.13.1..0.13.2
+
+### Fix
+
 - Sync workspace version with tags by [@pepicrft](https://github.com/pepicrft)
 
 
