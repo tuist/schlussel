@@ -17,6 +17,5 @@
         "src",
         "include",
         "examples",
-        "formulas",
     },
 }
