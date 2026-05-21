@@ -14,6 +14,10 @@ use schlussel::session::{
 };
 use schlussel::{RefreshLockManager, SchlusselError};
 
+mod tuist;
+
+use tuist::{host_matches_identity, normalize_server_url, TuistSessionStore};
+
 #[derive(Parser, Debug)]
 #[command(
     name = "schlussel",
@@ -160,6 +164,11 @@ fn main() -> Result<()> {
 fn cmd_run(args: RunArgs) -> Result<()> {
     let open_browser = args.open_browser.unwrap_or(true);
     let formula = load_formula(&args.provider, args.common.formula_json.as_deref())?;
+    if formula.id == "tuist" {
+        bail!(
+            "Tuist sessions are managed by Tuist. Run 'tuist auth login' first, then use 'schlussel token get --formula tuist [--identity <server>]'."
+        );
+    }
     let (selected_client, client_id_override, client_secret_override, redirect_uri, method_name) =
         resolve_run_inputs(&formula, &args.common)?;
 
@@ -345,9 +354,37 @@ fn cmd_formula(args: FormulaArgs) -> Result<()> {
 }
 
 fn cmd_token(args: TokenArgs) -> Result<()> {
-    let storage = FileStorage::new("schlussel")?;
     match args.action {
         TokenAction::Get(options) => {
+            if options.key.is_none() && is_tuist_formula(options.formula.as_deref()) {
+                ensure_tuist_method(options.method.as_deref())?;
+                let store = TuistSessionStore::new()?;
+                let server_url = normalize_server_url(options.identity.as_deref())?;
+                let token = if options.no_refresh {
+                    store
+                        .load_token(&server_url)?
+                        .ok_or_else(|| anyhow!("token not found for server URL '{server_url}'"))?
+                } else {
+                    store.get_valid_token(&server_url)?
+                };
+
+                if options.json {
+                    println!(
+                        "{}",
+                        serde_json::to_string_pretty(&serde_json::json!({
+                            "formula": "tuist",
+                            "method": "session",
+                            "server_url": server_url,
+                            "token": token
+                        }))?
+                    );
+                } else {
+                    println!("{}", token.access_token);
+                }
+                return Ok(());
+            }
+
+            let storage = FileStorage::new("schlussel")?;
             let key = resolve_token_key(
                 options.key.as_deref(),
                 options.formula.as_deref(),
@@ -384,6 +421,39 @@ fn cmd_token(args: TokenArgs) -> Result<()> {
             }
         }
         TokenAction::List(options) => {
+            if options.key.is_none() && is_tuist_formula(options.formula.as_deref()) {
+                ensure_tuist_method(options.method.as_deref())?;
+                let store = TuistSessionStore::new()?;
+                let hosts = store
+                    .list_hosts()?
+                    .into_iter()
+                    .filter(|host| host_matches_identity(host, options.identity.as_deref()))
+                    .collect::<Vec<_>>();
+
+                if options.json {
+                    let items = hosts
+                        .iter()
+                        .map(|host| {
+                            serde_json::json!({
+                                "formula": "tuist",
+                                "method": "session",
+                                "host": host,
+                            })
+                        })
+                        .collect::<Vec<_>>();
+                    println!("{}", serde_json::to_string_pretty(&items)?);
+                } else if hosts.is_empty() {
+                    println!("No Tuist sessions found");
+                } else {
+                    println!("Tuist sessions:");
+                    for host in hosts {
+                        println!("  {host}");
+                    }
+                }
+                return Ok(());
+            }
+
+            let storage = FileStorage::new("schlussel")?;
             let keys = storage
                 .list_keys()?
                 .into_iter()
@@ -429,6 +499,25 @@ fn cmd_token(args: TokenArgs) -> Result<()> {
             }
         }
         TokenAction::Delete(options) => {
+            if options.key.is_none() && is_tuist_formula(options.formula.as_deref()) {
+                ensure_tuist_method(options.method.as_deref())?;
+                let store = TuistSessionStore::new()?;
+                let server_url = normalize_server_url(options.identity.as_deref())?;
+                store.delete_token(&server_url)?;
+                if options.json {
+                    println!(
+                        "{}",
+                        serde_json::to_string_pretty(
+                            &serde_json::json!({ "deleted": server_url })
+                        )?
+                    );
+                } else {
+                    println!("Tuist session deleted: {server_url}");
+                }
+                return Ok(());
+            }
+
+            let storage = FileStorage::new("schlussel")?;
             let key = resolve_token_key(
                 options.key.as_deref(),
                 options.formula.as_deref(),
@@ -448,6 +537,18 @@ fn cmd_token(args: TokenArgs) -> Result<()> {
     }
 
     Ok(())
+}
+
+fn is_tuist_formula(formula: Option<&str>) -> bool {
+    matches!(formula, Some("tuist"))
+}
+
+fn ensure_tuist_method(method: Option<&str>) -> Result<()> {
+    if method.is_none_or(|method| method == "session") {
+        Ok(())
+    } else {
+        bail!("Tuist only supports the 'session' method")
+    }
 }
 
 fn cmd_script(args: ScriptArgs) -> Result<()> {

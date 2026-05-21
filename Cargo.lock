@@ -1259,10 +1259,13 @@ name = "schlussel-cli"
 version = "0.13.2"
 dependencies = [
  "anyhow",
+ "base64",
  "clap",
+ "reqwest",
  "schlussel",
  "serde",
  "serde_json",
+ "tempfile",
  "url",
 ]
 
