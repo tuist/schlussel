@@ -112,7 +112,7 @@ jobs:
           cd dist
           if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
             cp ../target/release/schlussel.exe schlussel.exe
-            zip ${{ matrix.artifact }}.zip schlussel.exe
+            powershell.exe -NoLogo -NoProfile -Command "Compress-Archive -Path schlussel.exe -DestinationPath '${{ matrix.artifact }}.zip' -Force"
           else
             cp ../target/release/schlussel schlussel
             tar -czvf ${{ matrix.artifact }}.tar.gz schlussel
