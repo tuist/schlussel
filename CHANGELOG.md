@@ -1,5 +1,17 @@
 
 
+### Chore
+
+- Remove legacy Zig implementation by [@pepicrft](https://github.com/pepicrft)
+
+### Docs
+
+- Add README motivation note by [@pepicrft](https://github.com/pepicrft)
+- Improve README install guidance by [@pepicrft](https://github.com/pepicrft)
+
+
+**Full Changelog**: https://github.com/pepicrft/schlussel/compare/0.16.0..0.16.1
+
 ### Feat
 
 - Expose formula metadata in xcframework ([#35](https://github.com/pepicrft/schlussel/pull/35)) by [@pepicrft](https://github.com/pepicrft)
