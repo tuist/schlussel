@@ -7,6 +7,7 @@ Schlussel handles PKCE, Device Code Flow, callback-based authorization, token st
 ## Features
 
 - Rust workspace with a reusable library crate and CLI crate
+- C-compatible FFI surface plus a native Swift XCFramework API
 - Device Code Flow and Authorization Code Flow with PKCE
 - Dynamic client registration support
 - Formula-driven provider definitions bundled from `src/formulas/*.json`
@@ -55,6 +56,22 @@ If you later query or refresh tokens created from a custom formula, pass the sam
 ```bash
 schlussel token get --formula local --formula-json ./formula.json --method authorization_code
 ```
+
+## Swift Integration
+
+Each GitHub release publishes a signed macOS `Schlussel.xcframework.zip` with a native Swift module named `Schlussel`:
+
+```swift
+import Schlussel
+
+let client = try Client(
+    githubClientID: "your-client-id",
+    scopes: "repo user",
+    appName: "MyApp"
+)
+```
+
+The framework wraps the Rust runtime behind Swift types like `Client`, `Token`, `RegistrationClient`, and `RegistrationResponse`. The underlying C header remains available for other native hosts.
 
 ## Development
 
