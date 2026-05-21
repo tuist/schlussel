@@ -1,26 +1,19 @@
 # Schlussel
 
-Authentication runtime for agents and CLI applications.
+Cross-platform OAuth 2.0 runtime and library for command-line applications and agent workflows.
 
-Schlussel wraps OAuth device-code and authorization-code flows in formula-driven CLI commands so agents can authenticate without asking users to paste tokens by hand.
+Schlussel handles PKCE, Device Code Flow, callback-based authorization, token storage, formula-driven provider definitions, and refresh coordination so applications can integrate OAuth without rebuilding the plumbing every time.
 
 ## Features
 
-- Formula-driven provider definitions in `src/formulas/*.json`
-- Device code and authorization code with PKCE
-- Persistent token storage, token listing, and token deletion
-- Automatic token refresh with cross-process locking
-- Rust workspace with unit tests and ShellSpec e2e coverage
+- Rust workspace with a reusable library crate and CLI crate
+- Device Code Flow and Authorization Code Flow with PKCE
+- Dynamic client registration support
+- Formula-driven provider definitions bundled from `src/formulas/*.json`
+- Persistent token storage with cross-process-safe refresh locking
+- ShellSpec end-to-end coverage against a local OAuth test server
 
-## Installation
-
-Install via [mise](https://mise.jdx.dev/):
-
-```bash
-mise use -g github:pepicrft/schlussel
-```
-
-## Usage
+## CLI Usage
 
 Authenticate with a provider:
 
@@ -74,7 +67,7 @@ mise exec -- cargo build --workspace
 Run the test suite:
 
 ```bash
-mise exec -- cargo test
+mise exec -- cargo test --workspace
 shellspec
 ```
 
@@ -86,14 +79,13 @@ mise exec -- cargo fmt --check
 
 Add a new formula:
 
-1. Create a JSON file in `src/formulas/`.
-2. Run `mise exec -- cargo test`.
-3. Run `pnpm --dir website run build:formulas` if the website output depends on the new formula.
+1. Create or update a JSON file in `src/formulas/`.
+2. Run `mise exec -- cargo test --workspace`.
+3. Run `shellspec` if the change affects CLI auth flows or refresh behavior.
 
-## Documentation
+## Legacy Zig Reference
 
-- Docs: https://schlussel.me/docs
-- Skill page: https://schlussel.me/skill.md
+The repository still contains the previous Zig implementation as migration reference material. New work should target the Rust workspace unless a task explicitly says otherwise.
 
 ## License
 

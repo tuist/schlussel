@@ -4,11 +4,11 @@
 
 Schlussel is a cross-platform OAuth 2.0 library with PKCE and Device Code Flow support, now centered on a Rust workspace. It is designed for command-line applications and agent runtimes, with formula-driven provider definitions, token persistence, and automatic refresh.
 
-## Website Notes
+## Documentation Notes
 
-- Keep the example formula snippet in `website/theme/layouts/index.liquid` aligned with the JSON schema and the current contents of `src/formulas/claude.json`.
-- Keep the skill page (`website/src/skill.md`) up to date when modifying formula schemas or the CLI interface. This file serves as agent instructions and is accessible at https://schlussel.me/skill.md
-- Keep the documentation page (`website/src/html.ts` - `renderDocsPage` function) up to date when modifying the formula schema or CLI interface. The docs page documents the formula specification and CLI commands at https://schlussel.me/docs
+- Keep `README.md` aligned with the current public API and CLI behavior.
+- Keep public doc comments in `crates/schlussel/src/*.rs` accurate when changing interfaces.
+- If you touch legacy Zig or FFI reference material, keep `src/*.zig` and `include/schlussel.h` accurate too.
 
 ## Core Architecture
 
@@ -26,16 +26,16 @@ Schlussel is a cross-platform OAuth 2.0 library with PKCE and Device Code Flow s
    - Stable storage-key format: `{formula}:{method}:{identity}`
 
 3. **OAuth Flow** (`crates/schlussel/src/oauth.rs`)
-   - Device Code Flow (RFC 8628) for CLI apps
+   - Device Code Flow (RFC 8628) for CLI applications
    - Authorization Code Flow with PKCE
    - Automatic browser opening and callback handling
-   - Token refresh with HTTP client
-   - Provider presets (GitHub, Google, Microsoft, GitLab, Tuist)
+   - Token refresh with an HTTP client
+   - Provider presets and formula-driven configuration
 
 4. **Token Refresher** (`crates/schlussel/src/oauth.rs`)
    - In-process locking (threads)
    - Cross-process locking (file-based)
-   - Automatic token refresh (`getValidToken`)
+   - Automatic token refresh (`get_valid_token`)
    - Proactive refresh with thresholds
 
 5. **Callback Server** (`crates/schlussel/src/callback.rs`)
@@ -46,7 +46,7 @@ Schlussel is a cross-platform OAuth 2.0 library with PKCE and Device Code Flow s
 6. **Cross-Process Locking** (`crates/schlussel/src/lock.rs`)
    - File-based locks
    - RAII lock guards
-   - Check-then-refresh pattern
+   - Check-then-refresh coordination
 
 7. **Formulas and Scripts**
    - Bundled provider formulas live in `src/formulas/*.json`
@@ -63,7 +63,7 @@ Schlussel is a cross-platform OAuth 2.0 library with PKCE and Device Code Flow s
 
 ### Commits
 
-Follow the [Conventional Commits](https://www.conventionalcommits.org/) specification for commit messages:
+Follow the [Conventional Commits](https://www.conventionalcommits.org/) specification:
 - `feat:` for new features
 - `fix:` for bug fixes
 - `docs:` for documentation changes
@@ -76,14 +76,14 @@ Follow the [Conventional Commits](https://www.conventionalcommits.org/) specific
 
 - Unit tests live next to the Rust modules they cover
 - End-to-end CLI coverage lives under `e2e/` and runs through ShellSpec against a local OAuth server
-- Run: `mise exec -- cargo test`
+- Run: `mise exec -- cargo test --workspace`
 - Run: `shellspec`
 - All tests must pass before committing
 
 ### Building
 
 - Development: `mise exec -- cargo build --workspace`
-- Run tests: `mise exec -- cargo test`
+- Run tests: `mise exec -- cargo test --workspace`
 - Format: `mise exec -- cargo fmt`
 
 ### CI Requirements
@@ -97,80 +97,92 @@ All PRs must pass:
 
 ### 1. Security First
 
-- **SecureStorage is the library default recommendation** for hosts that want OS credential managers
-- The CLI currently uses `FileStorage` so tokens can be enumerated, filtered, and deleted by key
+- **SecureStorage is the library default recommendation** for production hosts that want OS credential managers
+- The CLI uses `FileStorage` so tokens can be enumerated, filtered, and deleted by key
 - Always use PKCE for OAuth flows
-- Cross-process locking prevents race conditions
+- Cross-process locking prevents refresh races
 
 ### 2. Device Code Flow Priority
 
 - Primary flow for CLI applications
-- Simpler UX than callback server
-- Works in headless/remote environments
-- Falls back to callback flow when Device Code not supported
+- Simpler UX than a callback server in headless environments
+- Works in remote and terminal-only setups
+- Falls back to callback flow when Device Code is unavailable
 
 ### 3. Automatic Token Refresh
 
-- `getValidToken()` eliminates manual expiration checking
-- Proactive refresh with configurable thresholds
-- Cross-process safe when using file locking
+- `get_valid_token()` eliminates manual expiration checking
+- Proactive refresh uses configurable thresholds
+- Refreshes are safe across concurrent processes when locking is enabled
 
 ### 4. Provider Presets
 
-- One-line configuration for popular providers
-- Reduces errors from manual endpoint configuration
+- One-line configuration for common providers
+- Reduces endpoint and redirect configuration mistakes
 - Self-hosted instance support where applicable
 
 ### 5. Storage Abstraction
 
 Three built-in backends:
 - **SecureStorage**: Production (OS keychain/credential manager)
-- **FileStorage**: Development (JSON files)
-- **MemoryStorage**: Testing (in-memory)
+- **FileStorage**: CLI and development storage
+- **MemoryStorage**: Testing
 
 ### 6. Cross-Process Coordination
 
-- File-based locks at refresh level (not storage level)
-- Check-then-refresh pattern to avoid redundant HTTP requests
-- RAII lock guards with automatic cleanup
+- File-based locks operate at the refresh level instead of the storage-root level
+- Refresh paths use a check-then-refresh pattern to avoid duplicate token exchanges
+- File-backed token saves use atomic replacement
 
 ## Common Tasks
 
 ### Adding a New Provider Preset
 
-1. Add method to `OAuthConfig` in `crates/schlussel/src/oauth.rs`
-2. Add test to verify endpoints
-3. Update README.md if it's a major provider
+1. Add the configuration in `crates/schlussel/src/oauth.rs` or the bundled formula set.
+2. Add tests to verify endpoints and behavior.
+3. Update `README.md` if the change is part of the public surface.
 
 ### Adding a New Storage Backend
 
-1. Implement `SessionStorage` in `crates/schlussel/src/session.rs`
-2. Add tests
-3. Add or update CLI and e2e coverage if the storage is user-visible
+1. Implement `SessionStorage` in `crates/schlussel/src/session.rs`.
+2. Add tests.
+3. Add or update CLI and e2e coverage if the storage is user-visible.
+
+### Touching Legacy Zig or FFI Code
+
+1. Keep the Zig reference implementation consistent enough to read and compare during migration work.
+2. Update `include/schlussel.h` when C-facing interfaces change.
+3. Call out any divergence between the Rust runtime and the legacy Zig reference.
 
 ## Security Considerations
 
-1. **Secure Storage**: Always recommend `SecureStorage` for production
-2. **PKCE Required**: Never allow non-PKCE flows
-3. **State Validation**: Always verify state parameter
-4. **HTTPS Only**: Validate endpoints use HTTPS (except localhost)
-5. **Token Expiration**: Use `getValidToken()` for automatic checking
-6. **Cross-Process Safety**: Use file locking when multiple processes might run
+1. **Secure Storage**: Recommend `SecureStorage` for production.
+2. **PKCE Required**: Do not allow non-PKCE OAuth flows.
+3. **State Validation**: Always verify the state parameter.
+4. **HTTPS Only**: Validate endpoints use HTTPS except localhost callbacks.
+5. **Token Expiration**: Use `get_valid_token()` for automatic checks.
+6. **Cross-Process Safety**: Use file locking when multiple processes might run.
 
 ## Platform-Specific Notes
 
 ### Legacy Zig Sources
 
-- The legacy Zig implementation is still present in the repository as migration reference material.
+- The legacy Zig implementation remains in the repository as migration reference material.
 - New work should target the Rust workspace unless a task explicitly says otherwise.
 
+### macOS
+
+- SecureStorage uses Keychain.
+
 ### Windows
-- SecureStorage uses Credential Manager
-- File locking uses different error codes
+
+- SecureStorage uses Credential Manager.
+- File locking uses different error codes.
 
 ### Linux
-- SecureStorage requires libsecret
-- XDG Base Directory specification for file paths
+
+- SecureStorage requires libsecret.
+- File paths follow the XDG Base Directory specification.
 
 ## References
 
