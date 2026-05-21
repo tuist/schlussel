@@ -52,8 +52,6 @@ schlussel token list --formula github
 schlussel token delete --formula github --method device_code --identity personal
 ```
 
-Tuist sessions discovered from the local Tuist credentials store also appear in `schlussel token list`.
-
 Every CLI command accepts `--format json|toon`. Use `json` for structured output and `toon` for the styled human-readable renderer.
 
 Emit a resolved script document for an agent workflow:
