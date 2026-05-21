@@ -1,5 +1,20 @@
 
 
+### Feat
+
+- Migrate schlussel to a Rust workspace ([#32](https://github.com/pepicrft/schlussel/pull/32)) by [@pepicrft](https://github.com/pepicrft)
+
+### Fix
+
+- Package windows artifact with powershell by [@pepicrft](https://github.com/pepicrft)
+
+### Refactor
+
+- Remove website and formula support ([#31](https://github.com/pepicrft/schlussel/pull/31)) by [@pepicrft](https://github.com/pepicrft)
+
+
+**Full Changelog**: https://github.com/pepicrft/schlussel/compare/0.12.2..0.13.0
+
 ### Fix
 
 - Website TypeScript syntax error - string continuation
