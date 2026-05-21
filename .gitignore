@@ -8,6 +8,8 @@ zig-out/
 
 # Distribution builds
 dist/
+artifacts/
+release/
 build-xcframework/
 *.xcframework/
 website/build/

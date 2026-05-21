@@ -1,3 +1,0 @@
-aca3ea44e29e8d91a87b5b5a5d6007aa40071e5ff7ffaa0a0e7ee56952bbd8d6  schlussel-native-macos.tar.gz
-9ee5cfbf05b821121b1c7c6ffd4aef6dabd20cc94c0373f1c64c6245f15bf4f2  schlussel-x86_64-linux.tar.gz
-10bd7e853359b78040ff9091ea75d31a82c014abd50810257d120dcbba07e89e  schlussel-x86_64-windows.zip

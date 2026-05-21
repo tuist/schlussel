@@ -175,11 +175,13 @@ jobs:
 
       - name: Commit changes
         id: auto-commit
-        uses: stefanzweifel/git-auto-commit-action@v5
-        with:
-          commit_options: "--allow-empty"
-          skip_dirty_check: true
-          commit_message: "[Release] Schlussel ${{ needs.check-release.outputs.next-version }}"
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add CHANGELOG.md Cargo.toml Cargo.lock
+          git commit --allow-empty -m "[Release] Schlussel ${{ needs.check-release.outputs.next-version }}"
+          git push
+          echo "commit_hash=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
       - name: Get release notes
         id: release-notes
