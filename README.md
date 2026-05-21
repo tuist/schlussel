@@ -4,7 +4,7 @@ Cross-platform OAuth 2.0 runtime and library for command-line applications and a
 
 Schlussel handles PKCE, Device Code Flow, callback-based authorization, token storage, formula-driven provider definitions, and refresh coordination so applications can integrate OAuth without rebuilding the plumbing every time.
 
-## Features
+## ✨ Features
 
 - Rust workspace with a reusable library crate and CLI crate
 - C-compatible FFI surface plus a native Swift XCFramework API
@@ -14,7 +14,18 @@ Schlussel handles PKCE, Device Code Flow, callback-based authorization, token st
 - Persistent token storage with cross-process-safe refresh locking
 - ShellSpec end-to-end coverage against a local OAuth test server
 
-## CLI Usage
+## 🚀 Install the CLI
+
+Install the latest published CLI with `mise`:
+
+```bash
+mise use -g github:tuist/schlussel@latest
+schlussel --version
+```
+
+This uses the GitHub release backend, so `mise` installs the current Schlussel binary for your platform.
+
+## 🔐 CLI Usage
 
 Authenticate with a provider:
 
@@ -43,7 +54,7 @@ Emit a resolved script document for an agent workflow:
 schlussel script github --method device_code --resolve
 ```
 
-## Custom Formulas
+## 🧩 Custom Formulas
 
 Load a formula file directly:
 
@@ -57,7 +68,7 @@ If you later query or refresh tokens created from a custom formula, pass the sam
 schlussel token get --formula local --formula-json ./formula.json --method authorization_code
 ```
 
-## Swift Integration
+## 🍎 Swift Integration
 
 Each GitHub release publishes a signed macOS `Schlussel.xcframework.zip` with a native Swift module named `Schlussel`:
 
@@ -85,7 +96,7 @@ print(github.methods.map(\.name))
 
 Preset helpers like `Client(githubClientID:...)` and `Client(googleClientID:...)` remain available when you do not need formula-driven setup. The framework wraps the Rust runtime behind Swift types like `Client`, `Token`, `RegistrationClient`, and `RegistrationResponse`. The underlying C header remains available for other native hosts.
 
-## Development
+## 🛠️ Development
 
 Build the workspace:
 
