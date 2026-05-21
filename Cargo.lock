@@ -1235,7 +1235,7 @@ dependencies = [
 
 [[package]]
 name = "schlussel"
-version = "0.14.0"
+version = "0.15.0"
 dependencies = [
  "base64",
  "directories",
@@ -1256,7 +1256,7 @@ dependencies = [
 
 [[package]]
 name = "schlussel-cli"
-version = "0.14.0"
+version = "0.15.0"
 dependencies = [
  "anyhow",
  "base64",
@@ -1279,7 +1279,7 @@ dependencies = [
 
 [[package]]
 name = "schlussel-oauth-test-server"
-version = "0.14.0"
+version = "0.15.0"
 dependencies = [
  "clap",
  "serde",

@@ -2,6 +2,17 @@
 
 ### Feat
 
+- Add native xcframework bindings ([#34](https://github.com/pepicrft/schlussel/pull/34)) by [@pepicrft](https://github.com/pepicrft)
+
+### Fix
+
+- Quote certificate name by [@pepicrft](https://github.com/pepicrft)
+
+
+**Full Changelog**: https://github.com/pepicrft/schlussel/compare/0.14.0..0.15.0
+
+### Feat
+
 - Reuse Tuist-managed sessions ([#33](https://github.com/pepicrft/schlussel/pull/33)) by [@pepicrft](https://github.com/pepicrft)
 
 
