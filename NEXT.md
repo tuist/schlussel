@@ -32,7 +32,7 @@ refresh coordination, and the FFI/runtime layers around them.
 ### 5. Documentation
 
 - Keep the README focused on the library and the token CLI
-- Expand source doc comments so `zig build docs` is enough for day-to-day reference
+- Expand source doc comments so `cargo doc --workspace` is enough for day-to-day reference
 - Add short troubleshooting guidance for common OAuth and storage failures
 
 ## Open Questions

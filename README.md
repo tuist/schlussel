@@ -112,10 +112,6 @@ Add a new formula:
 2. Run `mise exec -- cargo test --workspace`.
 3. Run `shellspec` if the change affects CLI auth flows or refresh behavior.
 
-## Legacy Zig Reference
-
-The repository still contains the previous Zig implementation as migration reference material. New work should target the Rust workspace unless a task explicitly says otherwise.
-
 ## License
 
 [MIT](LICENSE)

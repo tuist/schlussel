@@ -8,7 +8,7 @@ Schlussel is a cross-platform OAuth 2.0 library with PKCE and Device Code Flow s
 
 - Keep `README.md` aligned with the current public API and CLI behavior.
 - Keep public doc comments in `crates/schlussel/src/*.rs` accurate when changing interfaces.
-- If you touch legacy Zig or FFI reference material, keep `src/*.zig` and `include/schlussel.h` accurate too.
+- Keep `include/schlussel.h` aligned with `crates/schlussel-ffi` when the C-facing API changes.
 
 ## Core Architecture
 
@@ -148,11 +148,11 @@ Three built-in backends:
 2. Add tests.
 3. Add or update CLI and e2e coverage if the storage is user-visible.
 
-### Touching Legacy Zig or FFI Code
+### Touching FFI Code
 
-1. Keep the Zig reference implementation consistent enough to read and compare during migration work.
-2. Update `include/schlussel.h` when C-facing interfaces change.
-3. Call out any divergence between the Rust runtime and the legacy Zig reference.
+1. Update `include/schlussel.h` when C-facing interfaces change.
+2. Keep `crates/schlussel-ffi` and the Swift wrapper aligned with header changes.
+3. Call out any user-visible ABI or ownership changes in the PR description.
 
 ## Security Considerations
 
@@ -164,11 +164,6 @@ Three built-in backends:
 6. **Cross-Process Safety**: Use file locking when multiple processes might run.
 
 ## Platform-Specific Notes
-
-### Legacy Zig Sources
-
-- The legacy Zig implementation remains in the repository as migration reference material.
-- New work should target the Rust workspace unless a task explicitly says otherwise.
 
 ### macOS
 

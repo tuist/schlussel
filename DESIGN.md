@@ -6,7 +6,7 @@ threads and processes.
 
 ## Goals
 
-- Provide a reusable OAuth implementation for Zig and C consumers.
+- Provide a reusable OAuth implementation for Rust, Swift, and C consumers.
 - Support Device Code Flow and Authorization Code Flow with PKCE.
 - Keep token storage and refresh logic in one disciplined layer.
 - Offer a small CLI for inspecting and retrieving stored tokens.
