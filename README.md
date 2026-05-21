@@ -4,6 +4,9 @@ Cross-platform OAuth 2.0 runtime and library for command-line applications and a
 
 Schlussel handles PKCE, Device Code Flow, callback-based authorization, token storage, formula-driven provider definitions, and refresh coordination so applications can integrate OAuth without rebuilding the plumbing every time.
 
+> [!NOTE]
+> Schlussel exists to provide a runtime-agnostic authentication and session layer that multiple client-side tools can share against the same origin server. Instead of each CLI, agent, or native client reimplementing OAuth, token refresh, and persistence independently, they can all rely on the same credentials and session coordination model.
+
 ## ✨ Features
 
 - Rust workspace with a reusable library crate and CLI crate
