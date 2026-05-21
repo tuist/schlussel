@@ -107,6 +107,42 @@ typedef struct SchlusselRegistrationClient SchlusselRegistrationClient;
 typedef struct SchlusselRegistrationResponse SchlusselRegistrationResponse;
 
 /* ============================================================================
+ * Formula inspection functions
+ * ============================================================================ */
+
+/**
+ * List bundled formulas as a JSON array of `{id, label}` objects
+ *
+ * @return Newly allocated JSON string, or NULL on error
+ *         Must be freed with schlussel_string_free()
+ */
+char* schlussel_formula_list_builtin_json(void);
+
+/**
+ * Load bundled formula metadata as JSON
+ *
+ * The JSON payload includes `schema`, `id`, `label`, `description`, `methods`,
+ * and `identity`.
+ *
+ * @param formula_id The bundled formula identifier
+ * @return           Newly allocated JSON string, or NULL on error
+ *                   Must be freed with schlussel_string_free()
+ */
+char* schlussel_formula_load_builtin_json(const char* formula_id);
+
+/**
+ * Load formula metadata from a JSON file as JSON
+ *
+ * The JSON payload includes `schema`, `id`, `label`, `description`, `methods`,
+ * and `identity`.
+ *
+ * @param formula_path Path to a formula JSON file
+ * @return             Newly allocated JSON string, or NULL on error
+ *                     Must be freed with schlussel_string_free()
+ */
+char* schlussel_formula_load_path_json(const char* formula_path);
+
+/* ============================================================================
  * Client creation functions
  * ============================================================================ */
 

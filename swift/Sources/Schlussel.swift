@@ -55,6 +55,60 @@ public struct Formula: Sendable {
     public static func file(atPath path: String) -> Formula {
         Formula(source: .file(path))
     }
+
+    public static func builtins() throws -> [FormulaSummary] {
+        try decodeJSON([FormulaSummary].self, from: schlussel_formula_list_builtin_json())
+    }
+
+    public func metadata() throws -> FormulaMetadata {
+        switch source {
+        case let .builtin(id):
+            return try id.withCString { formulaPointer in
+                try decodeJSON(FormulaMetadata.self, from: schlussel_formula_load_builtin_json(formulaPointer))
+            }
+        case let .file(path):
+            return try path.withCString { formulaPointer in
+                try decodeJSON(FormulaMetadata.self, from: schlussel_formula_load_path_json(formulaPointer))
+            }
+        }
+    }
+}
+
+public struct FormulaSummary: Decodable, Hashable, Sendable {
+    public let id: String
+    public let label: String
+
+    public var formula: Formula {
+        .builtin(id)
+    }
+}
+
+public struct FormulaMetadata: Decodable, Hashable, Sendable {
+    public let schema: String
+    public let id: String
+    public let label: String
+    public let description: String?
+    public let methods: [FormulaMethod]
+    public let identity: FormulaIdentity?
+}
+
+public struct FormulaMethod: Decodable, Hashable, Sendable {
+    public let name: String
+    public let label: String?
+    public let scope: String?
+    public let flow: FormulaMethodFlow
+    public let usesDynamicRegistration: Bool
+}
+
+public enum FormulaMethodFlow: String, Decodable, Hashable, Sendable {
+    case authorizationCode
+    case deviceCode
+    case apiKey
+}
+
+public struct FormulaIdentity: Decodable, Hashable, Sendable {
+    public let label: String?
+    public let hint: String?
 }
 
 public final class Token {
@@ -463,6 +517,22 @@ private func ownedString(_ pointer: UnsafeMutablePointer<CChar>?) -> String? {
         schlussel_string_free(pointer)
     }
     return String(cString: pointer)
+}
+
+private func decodeJSON<T: Decodable>(
+    _ type: T.Type,
+    from pointer: UnsafeMutablePointer<CChar>?
+) throws -> T {
+    let payload = try unwrap(pointer)
+    guard let json = ownedString(payload) else {
+        throw SchlusselAPIError(code: .json, message: "Invalid Schlussel JSON payload")
+    }
+
+    do {
+        return try JSONDecoder().decode(type, from: Data(json.utf8))
+    } catch {
+        throw SchlusselAPIError(code: .json, message: error.localizedDescription)
+    }
 }
 
 private func withOptionalCString<T>(

@@ -2,13 +2,16 @@ use std::cell::RefCell;
 use std::ffi::{c_char, c_int, CStr, CString};
 use std::ptr;
 
-use schlussel::formulas::{find_builtin, load_from_path};
+use schlussel::formulas::{
+    find_builtin, list_builtin, load_from_path, Formula as SchlusselFormula, MethodDef,
+};
 use schlussel::oauth::{OAuthClient, OAuthConfig};
 use schlussel::registration::{
     ClientMetadata, ClientRegistrationResponse, DynamicRegistrationClient,
 };
 use schlussel::session::{MemoryStorage, SecureStorage, Token};
 use schlussel::{config_from_formula, SchlusselError};
+use serde::Serialize;
 
 const SCHLUSSEL_OK: c_int = 0;
 const SCHLUSSEL_ERROR_INVALID_PARAMETER: c_int = 1;
@@ -33,6 +36,49 @@ const DEFAULT_REDIRECT_URI: &str = "http://127.0.0.1/callback";
 struct LastError {
     code: c_int,
     message: Option<String>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct FormulaSummaryDescriptor {
+    id: String,
+    label: String,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct FormulaMetadataDescriptor {
+    schema: String,
+    id: String,
+    label: String,
+    description: Option<String>,
+    methods: Vec<FormulaMethodDescriptor>,
+    identity: Option<FormulaIdentityDescriptor>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct FormulaMethodDescriptor {
+    name: String,
+    label: Option<String>,
+    scope: Option<String>,
+    flow: FormulaMethodFlowDescriptor,
+    uses_dynamic_registration: bool,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+enum FormulaMethodFlowDescriptor {
+    AuthorizationCode,
+    DeviceCode,
+    ApiKey,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct FormulaIdentityDescriptor {
+    label: Option<String>,
+    hint: Option<String>,
 }
 
 thread_local! {
@@ -159,6 +205,53 @@ fn sanitize_c_string(value: &str) -> CString {
 
 fn into_c_string(value: &str) -> *mut c_char {
     sanitize_c_string(value).into_raw()
+}
+
+fn into_json_string<T: Serialize>(value: &T) -> Result<*mut c_char, SchlusselError> {
+    let json =
+        serde_json::to_string(value).map_err(|error| SchlusselError::Json(error.to_string()))?;
+    Ok(into_c_string(&json))
+}
+
+fn formula_flow_descriptor(method: &MethodDef) -> FormulaMethodFlowDescriptor {
+    if method.is_device_code() {
+        FormulaMethodFlowDescriptor::DeviceCode
+    } else if method.is_authorization_code() {
+        FormulaMethodFlowDescriptor::AuthorizationCode
+    } else {
+        FormulaMethodFlowDescriptor::ApiKey
+    }
+}
+
+fn describe_formula(formula: SchlusselFormula) -> FormulaMetadataDescriptor {
+    let methods = formula
+        .methods
+        .into_iter()
+        .map(|(name, method)| {
+            let flow = formula_flow_descriptor(&method);
+            let uses_dynamic_registration = method.uses_dynamic_registration();
+
+            FormulaMethodDescriptor {
+                name,
+                label: method.label,
+                scope: method.scope,
+                flow,
+                uses_dynamic_registration,
+            }
+        })
+        .collect();
+
+    FormulaMetadataDescriptor {
+        schema: formula.schema,
+        id: formula.id,
+        label: formula.label,
+        description: formula.description,
+        methods,
+        identity: formula.identity.map(|identity| FormulaIdentityDescriptor {
+            label: identity.label,
+            hint: identity.hint,
+        }),
+    }
 }
 
 unsafe fn required_str_arg<'a>(
@@ -344,6 +437,70 @@ pub extern "C" fn schlussel_last_error_message() -> *mut c_char {
 #[unsafe(no_mangle)]
 pub extern "C" fn schlussel_clear_last_error() {
     clear_last_error();
+}
+
+#[unsafe(no_mangle)]
+pub extern "C" fn schlussel_formula_list_builtin_json() -> *mut c_char {
+    clear_last_error();
+
+    let result = list_builtin()
+        .into_iter()
+        .map(|formula| FormulaSummaryDescriptor {
+            id: formula.id,
+            label: formula.label,
+        })
+        .collect::<Vec<_>>();
+
+    match into_json_string(&result) {
+        Ok(json) => json,
+        Err(error) => {
+            set_last_error(&error);
+            ptr::null_mut()
+        }
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn schlussel_formula_load_builtin_json(
+    formula_id: *const c_char,
+) -> *mut c_char {
+    clear_last_error();
+
+    let result = (|| {
+        let formula_id = required_str_arg(formula_id, "formula_id")?;
+        let formula = find_builtin(formula_id)
+            .ok_or_else(|| SchlusselError::FormulaNotFound(formula_id.to_string()))?;
+        into_json_string(&describe_formula(formula))
+    })();
+
+    match result {
+        Ok(json) => json,
+        Err(error) => {
+            set_last_error(&error);
+            ptr::null_mut()
+        }
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn schlussel_formula_load_path_json(
+    formula_path: *const c_char,
+) -> *mut c_char {
+    clear_last_error();
+
+    let result = (|| {
+        let formula_path = required_str_arg(formula_path, "formula_path")?;
+        let formula = load_from_path(formula_path)?;
+        into_json_string(&describe_formula(formula))
+    })();
+
+    match result {
+        Ok(json) => json,
+        Err(error) => {
+            set_last_error(&error);
+            ptr::null_mut()
+        }
+    }
 }
 
 #[unsafe(no_mangle)]
@@ -995,6 +1152,69 @@ mod tests {
     }
 
     #[test]
+    fn lists_builtin_formulas_as_json() {
+        let payload = schlussel_formula_list_builtin_json();
+        assert!(!payload.is_null());
+
+        let payload = owned_c_string(payload);
+        let formulas: serde_json::Value = serde_json::from_str(&payload).expect("valid json");
+        let formulas = formulas.as_array().expect("formula list");
+
+        assert!(formulas.iter().any(|formula| formula["id"] == "github"));
+        assert!(formulas
+            .iter()
+            .all(|formula| formula.get("label").is_some()));
+    }
+
+    #[test]
+    fn loads_builtin_formula_metadata_as_json() {
+        let formula_id = CString::new("github").expect("cstring");
+        let payload = unsafe { schlussel_formula_load_builtin_json(formula_id.as_ptr()) };
+        assert!(!payload.is_null());
+
+        let payload = owned_c_string(payload);
+        let formula: serde_json::Value = serde_json::from_str(&payload).expect("valid json");
+
+        assert_eq!(formula["id"], "github");
+        assert!(formula["methods"].as_array().is_some_and(|methods| {
+            methods.iter().any(|method| method["flow"] == "deviceCode")
+        }));
+    }
+
+    #[test]
+    fn loads_file_formula_metadata_as_json() {
+        let directory = tempdir().expect("tempdir");
+        let formula_path = directory.path().join("formula.json");
+        fs::write(
+            &formula_path,
+            r#"{
+  "schema": "v2",
+  "id": "example",
+  "label": "Example",
+  "description": "Example formula",
+  "methods": {
+    "api_key": {
+      "label": "API Key",
+      "script": [{ "type": "copy_key" }]
+    }
+  }
+}"#,
+        )
+        .expect("write formula");
+
+        let formula_path =
+            CString::new(formula_path.to_string_lossy().to_string()).expect("cstring");
+        let payload = unsafe { schlussel_formula_load_path_json(formula_path.as_ptr()) };
+        assert!(!payload.is_null());
+
+        let payload = owned_c_string(payload);
+        let formula: serde_json::Value = serde_json::from_str(&payload).expect("valid json");
+
+        assert_eq!(formula["id"], "example");
+        assert_eq!(formula["methods"][0]["flow"], "apiKey");
+    }
+
+    #[test]
     fn builtin_formula_client_uses_bundled_configuration() {
         let formula_id = CString::new("github").expect("cstring");
         let method_name = CString::new("device_code").expect("cstring");
@@ -1056,5 +1276,14 @@ mod tests {
 
         assert!(!client.is_null());
         unsafe { schlussel_client_free(client) };
+    }
+
+    fn owned_c_string(pointer: *mut c_char) -> String {
+        let value = unsafe { CStr::from_ptr(pointer) }
+            .to_str()
+            .expect("utf-8")
+            .to_string();
+        unsafe { schlussel_string_free(pointer) };
+        value
     }
 }
