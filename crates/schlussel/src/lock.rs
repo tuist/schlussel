@@ -118,4 +118,78 @@ mod tests {
         let lock = manager.acquire("github:device_code").expect("lock");
         assert!(lock.is_held());
     }
+
+    #[test]
+    fn lock_path_uses_encoded_key_and_creates_file() {
+        let temp = tempdir().expect("tempdir");
+        let manager = RefreshLockManager::with_path(temp.path()).expect("manager");
+        let lock = manager.acquire("github:device_code").expect("lock");
+        let expected_path = temp.path().join(format!(
+            "{}.lock",
+            URL_SAFE_NO_PAD.encode("github:device_code")
+        ));
+
+        assert_eq!(lock.path(), expected_path.as_path());
+        assert!(expected_path.exists());
+    }
+
+    #[test]
+    fn try_acquire_returns_none_while_lock_is_held() {
+        let temp = tempdir().expect("tempdir");
+        let manager = RefreshLockManager::with_path(temp.path()).expect("manager");
+        let _held = manager.acquire("github:device_code").expect("held lock");
+
+        let contender = manager
+            .try_acquire("github:device_code")
+            .expect("try_acquire");
+        assert!(contender.is_none());
+    }
+
+    #[test]
+    fn release_is_idempotent_and_allows_reacquire() {
+        let temp = tempdir().expect("tempdir");
+        let manager = RefreshLockManager::with_path(temp.path()).expect("manager");
+        let mut lock = manager.acquire("github:device_code").expect("lock");
+
+        lock.release().expect("first release");
+        assert!(!lock.is_held());
+        lock.release().expect("second release");
+
+        let next = manager
+            .try_acquire("github:device_code")
+            .expect("reacquire after release");
+        assert!(next.is_some());
+    }
+
+    #[test]
+    fn drop_releases_lock_for_future_callers() {
+        let temp = tempdir().expect("tempdir");
+        let manager = RefreshLockManager::with_path(temp.path()).expect("manager");
+
+        {
+            let _held = manager.acquire("github:device_code").expect("held lock");
+            assert!(manager
+                .try_acquire("github:device_code")
+                .expect("contender")
+                .is_none());
+        }
+
+        let reacquired = manager
+            .try_acquire("github:device_code")
+            .expect("reacquired after drop");
+        assert!(reacquired.is_some());
+    }
+
+    #[test]
+    fn empty_key_is_rejected() {
+        let temp = tempdir().expect("tempdir");
+        let manager = RefreshLockManager::with_path(temp.path()).expect("manager");
+        let error = manager.acquire("").expect_err("empty key should fail");
+
+        assert!(matches!(
+            error,
+            SchlusselError::InvalidParameter(message)
+            if message.contains("must not be empty")
+        ));
+    }
 }
