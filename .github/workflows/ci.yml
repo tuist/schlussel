@@ -19,7 +19,7 @@ jobs:
       - uses: jdx/mise-action@v2
 
       - name: Run tests
-        run: mise exec -- cargo test
+        run: cargo test
 
   e2e:
     name: E2E
@@ -30,7 +30,7 @@ jobs:
       - uses: jdx/mise-action@v2
 
       - name: Build E2E binaries
-        run: mise exec -- cargo build --workspace
+        run: cargo build --workspace
 
       - name: Run ShellSpec
         run: shellspec
@@ -44,4 +44,4 @@ jobs:
       - uses: jdx/mise-action@v2
 
       - name: Check formatting
-        run: mise exec -- cargo fmt --check
+        run: cargo fmt --check

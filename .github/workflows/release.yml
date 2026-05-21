@@ -93,7 +93,7 @@ jobs:
       - uses: jdx/mise-action@v2
 
       - name: Build release binary
-        run: mise exec -- cargo build --release --bin schlussel
+        run: cargo build --release --bin schlussel
 
       - name: Package binary
         shell: bash
