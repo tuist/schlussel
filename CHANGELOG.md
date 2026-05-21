@@ -1,5 +1,12 @@
 
 
+### Fix
+
+- Sync workspace version with tags by [@pepicrft](https://github.com/pepicrft)
+
+
+**Full Changelog**: https://github.com/pepicrft/schlussel/compare/0.13.0..0.13.1
+
 ### Feat
 
 - Migrate schlussel to a Rust workspace ([#32](https://github.com/pepicrft/schlussel/pull/32)) by [@pepicrft](https://github.com/pepicrft)
