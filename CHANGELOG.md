@@ -2,6 +2,13 @@
 
 ### Feat
 
+- Expose formula metadata in xcframework ([#35](https://github.com/pepicrft/schlussel/pull/35)) by [@pepicrft](https://github.com/pepicrft)
+
+
+**Full Changelog**: https://github.com/pepicrft/schlussel/compare/0.15.0..0.16.0
+
+### Feat
+
 - Add native xcframework bindings ([#34](https://github.com/pepicrft/schlussel/pull/34)) by [@pepicrft](https://github.com/pepicrft)
 
 ### Fix
