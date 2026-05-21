@@ -70,10 +70,10 @@ impl OAuthConfig {
     pub fn tuist(client_id: impl Into<String>, scope: Option<String>) -> Self {
         Self::public_client(
             client_id,
-            "https://cloud.tuist.io/oauth/authorize",
-            "https://cloud.tuist.io/oauth/token",
+            "https://tuist.dev/oauth2/authorize",
+            "https://tuist.dev/oauth2/token",
             scope,
-            Some("https://cloud.tuist.io/oauth/device/code".to_string()),
+            None,
         )
     }
 
@@ -255,6 +255,18 @@ mod tests {
         assert!(config
             .authorization_endpoint
             .starts_with("https://login.microsoftonline.com/common/"));
+    }
+
+    #[test]
+    fn tuist_preset_matches_current_tuist_oauth_surface() {
+        let config = OAuthConfig::tuist("client-id", Some("projects:read".to_string()));
+
+        assert_eq!(
+            config.authorization_endpoint,
+            "https://tuist.dev/oauth2/authorize"
+        );
+        assert_eq!(config.token_endpoint, "https://tuist.dev/oauth2/token");
+        assert_eq!(config.device_authorization_endpoint, None);
     }
 
     #[test]
