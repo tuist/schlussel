@@ -131,6 +131,43 @@ jobs:
           if-no-files-found: ignore
 
   # ===========================================================================
+  # Build Swift XCFramework
+  # ===========================================================================
+  build-swift-xcframework:
+    name: Build Swift XCFramework
+    needs: check-release
+    if: needs.check-release.outputs.should-release == 'true'
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: jdx/mise-action@c37c93293d6b742fc901e1406b8f764f6fb19dac # v2
+        with:
+          install_args: "rust 1password-cli"
+
+      - name: Set workspace version
+        run: python scripts/set_workspace_version.py "${{ needs.check-release.outputs.next-version }}"
+
+      - name: Build Swift XCFramework
+        run: bash scripts/build_apple_xcframework.sh
+        env:
+          SCHLUSSEL_FRAMEWORK_VERSION: ${{ needs.check-release.outputs.next-version }}
+          APPLE_TEAM_ID: U6LC622NKF
+          APPLE_CERTIFICATE_NAME: Developer ID Application: Tuist GmbH (U6LC622NKF)
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APP_SPECIFIC_PASSWORD: ${{ secrets.APP_SPECIFIC_PASSWORD }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.CERTIFICATE_PASSWORD }}
+          APPLE_CERTIFICATE_P12_BASE64: ${{ secrets.APPLE_CERTIFICATE_P12_BASE64 }}
+          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+
+      - name: Upload Swift artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: schlussel-swift-xcframework
+          path: build/Schlussel.xcframework.zip
+          if-no-files-found: error
+
+  # ===========================================================================
   # Publish release
   # ===========================================================================
   publish:
@@ -138,6 +175,7 @@ jobs:
     needs:
       - check-release
       - build-cli
+      - build-swift-xcframework
     if: needs.check-release.outputs.should-release == 'true'
     runs-on: ubuntu-latest
     permissions:

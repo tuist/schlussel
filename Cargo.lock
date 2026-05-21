@@ -1270,6 +1270,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "schlussel-ffi"
+version = "0.13.2"
+dependencies = [
+ "schlussel",
+]
+
+[[package]]
 name = "schlussel-oauth-test-server"
 version = "0.14.0"
 dependencies = [
