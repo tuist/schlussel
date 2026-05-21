@@ -102,6 +102,9 @@ jobs:
         with:
           install_args: "rust"
 
+      - name: Set workspace version
+        run: python scripts/set_workspace_version.py "${{ needs.check-release.outputs.next-version }}"
+
       - name: Build release binary
         run: cargo build --release --bin schlussel
 
@@ -148,6 +151,9 @@ jobs:
         with:
           install_args: "git-cliff"
 
+      - name: Set workspace version
+        run: python scripts/set_workspace_version.py "${{ needs.check-release.outputs.next-version }}"
+
       - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
@@ -173,7 +179,6 @@ jobs:
         with:
           commit_options: "--allow-empty"
           skip_dirty_check: true
-          file_pattern: "CHANGELOG.md"
           commit_message: "[Release] Schlussel ${{ needs.check-release.outputs.next-version }}"
 
       - name: Get release notes
