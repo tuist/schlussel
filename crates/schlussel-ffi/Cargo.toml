@@ -11,3 +11,6 @@ crate-type = ["rlib", "cdylib", "staticlib"]
 
 [dependencies]
 schlussel.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true

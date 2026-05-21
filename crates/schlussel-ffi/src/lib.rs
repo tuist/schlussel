@@ -2,12 +2,13 @@ use std::cell::RefCell;
 use std::ffi::{c_char, c_int, CStr, CString};
 use std::ptr;
 
+use schlussel::formulas::{find_builtin, load_from_path};
 use schlussel::oauth::{OAuthClient, OAuthConfig};
 use schlussel::registration::{
     ClientMetadata, ClientRegistrationResponse, DynamicRegistrationClient,
 };
 use schlussel::session::{MemoryStorage, SecureStorage, Token};
-use schlussel::SchlusselError;
+use schlussel::{config_from_formula, SchlusselError};
 
 const SCHLUSSEL_OK: c_int = 0;
 const SCHLUSSEL_ERROR_INVALID_PARAMETER: c_int = 1;
@@ -26,6 +27,8 @@ const SCHLUSSEL_ERROR_CONFIGURATION: c_int = 13;
 const SCHLUSSEL_ERROR_LOCK: c_int = 14;
 const SCHLUSSEL_ERROR_UNSUPPORTED: c_int = 15;
 const SCHLUSSEL_ERROR_TIMEOUT: c_int = 18;
+const DEFAULT_REDIRECT_URI: &str = "http://127.0.0.1/callback";
+
 #[derive(Default)]
 struct LastError {
     code: c_int,
@@ -230,6 +233,36 @@ fn persistent_client_handle(
     Ok(client_handle(ClientHandle::Secure(client)))
 }
 
+fn ephemeral_client_handle(config: OAuthConfig) -> Result<*mut SchlusselClient, SchlusselError> {
+    let client = OAuthClient::new(config, MemoryStorage::new())?;
+    Ok(client_handle(ClientHandle::Memory(client)))
+}
+
+fn formula_client_handle(
+    formula: schlussel::Formula,
+    method_name: &str,
+    client_id: Option<&str>,
+    client_secret: Option<&str>,
+    redirect_uri: Option<&str>,
+    scope: Option<&str>,
+    app_name: Option<&str>,
+) -> Result<*mut SchlusselClient, SchlusselError> {
+    let config = config_from_formula(
+        &formula,
+        method_name,
+        client_id,
+        client_secret,
+        redirect_uri.unwrap_or(DEFAULT_REDIRECT_URI),
+        scope,
+    )?;
+
+    if let Some(app_name) = app_name {
+        persistent_client_handle(config, app_name)
+    } else {
+        ephemeral_client_handle(config)
+    }
+}
+
 fn registration_response_handle(
     response: ClientRegistrationResponse,
 ) -> *mut SchlusselRegistrationResponse {
@@ -392,8 +425,92 @@ pub unsafe extern "C" fn schlussel_client_new(
             )?
             .map(ToOwned::to_owned),
         };
-        let client = OAuthClient::new(config, MemoryStorage::new())?;
-        Ok(client_handle(ClientHandle::Memory(client)))
+        ephemeral_client_handle(config)
+    })();
+
+    match result {
+        Ok(client) => client,
+        Err(error) => {
+            set_last_error(&error);
+            ptr::null_mut()
+        }
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn schlussel_client_new_formula_builtin(
+    formula_id: *const c_char,
+    method_name: *const c_char,
+    client_id: *const c_char,
+    client_secret: *const c_char,
+    redirect_uri: *const c_char,
+    scopes: *const c_char,
+    app_name: *const c_char,
+) -> *mut SchlusselClient {
+    clear_last_error();
+
+    let result = (|| {
+        let formula_id = required_str_arg(formula_id, "formula_id")?;
+        let method_name = required_str_arg(method_name, "method_name")?;
+        let client_id = optional_str_arg(client_id, "client_id")?;
+        let client_secret = optional_str_arg(client_secret, "client_secret")?;
+        let redirect_uri = optional_str_arg(redirect_uri, "redirect_uri")?;
+        let scopes = optional_str_arg(scopes, "scopes")?;
+        let app_name = optional_str_arg(app_name, "app_name")?;
+        let formula = find_builtin(formula_id)
+            .ok_or_else(|| SchlusselError::FormulaNotFound(formula_id.to_string()))?;
+
+        formula_client_handle(
+            formula,
+            method_name,
+            client_id,
+            client_secret,
+            redirect_uri,
+            scopes,
+            app_name,
+        )
+    })();
+
+    match result {
+        Ok(client) => client,
+        Err(error) => {
+            set_last_error(&error);
+            ptr::null_mut()
+        }
+    }
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn schlussel_client_new_formula_path(
+    formula_path: *const c_char,
+    method_name: *const c_char,
+    client_id: *const c_char,
+    client_secret: *const c_char,
+    redirect_uri: *const c_char,
+    scopes: *const c_char,
+    app_name: *const c_char,
+) -> *mut SchlusselClient {
+    clear_last_error();
+
+    let result = (|| {
+        let formula_path = required_str_arg(formula_path, "formula_path")?;
+        let method_name = required_str_arg(method_name, "method_name")?;
+        let client_id = optional_str_arg(client_id, "client_id")?;
+        let client_secret = optional_str_arg(client_secret, "client_secret")?;
+        let redirect_uri = optional_str_arg(redirect_uri, "redirect_uri")?;
+        let scopes = optional_str_arg(scopes, "scopes")?;
+        let app_name = optional_str_arg(app_name, "app_name")?;
+        let formula = load_from_path(formula_path)?;
+
+        formula_client_handle(
+            formula,
+            method_name,
+            client_id,
+            client_secret,
+            redirect_uri,
+            scopes,
+            app_name,
+        )
     })();
 
     match result {
@@ -817,7 +934,10 @@ pub unsafe extern "C" fn schlussel_registration_response_get_registration_client
 
 #[cfg(test)]
 mod tests {
+    use std::fs;
+
     use super::*;
+    use tempfile::tempdir;
 
     #[test]
     fn null_token_accessors_are_safe() {
@@ -865,6 +985,70 @@ mod tests {
                 authorization_endpoint.as_ptr(),
                 token_endpoint.as_ptr(),
                 redirect_uri.as_ptr(),
+                ptr::null(),
+                ptr::null(),
+            )
+        };
+
+        assert!(!client.is_null());
+        unsafe { schlussel_client_free(client) };
+    }
+
+    #[test]
+    fn builtin_formula_client_uses_bundled_configuration() {
+        let formula_id = CString::new("github").expect("cstring");
+        let method_name = CString::new("device_code").expect("cstring");
+
+        let client = unsafe {
+            schlussel_client_new_formula_builtin(
+                formula_id.as_ptr(),
+                method_name.as_ptr(),
+                ptr::null(),
+                ptr::null(),
+                ptr::null(),
+                ptr::null(),
+                ptr::null(),
+            )
+        };
+
+        assert!(!client.is_null());
+        unsafe { schlussel_client_free(client) };
+    }
+
+    #[test]
+    fn file_formula_client_accepts_overrides() {
+        let directory = tempdir().expect("tempdir");
+        let formula_path = directory.path().join("formula.json");
+        fs::write(
+            &formula_path,
+            r#"{
+  "schema": "v2",
+  "id": "example",
+  "label": "Example",
+  "methods": {
+    "authorization_code": {
+      "endpoints": {
+        "authorize": "https://example.com/authorize",
+        "token": "https://example.com/token"
+      }
+    }
+  }
+}"#,
+        )
+        .expect("write formula");
+
+        let formula_path =
+            CString::new(formula_path.to_string_lossy().to_string()).expect("cstring");
+        let method_name = CString::new("authorization_code").expect("cstring");
+        let client_id = CString::new("client-id").expect("cstring");
+
+        let client = unsafe {
+            schlussel_client_new_formula_path(
+                formula_path.as_ptr(),
+                method_name.as_ptr(),
+                client_id.as_ptr(),
+                ptr::null(),
+                ptr::null(),
                 ptr::null(),
                 ptr::null(),
             )

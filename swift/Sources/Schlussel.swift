@@ -36,6 +36,27 @@ public struct SchlusselAPIError: Error, CustomStringConvertible, Sendable {
     }
 }
 
+public struct Formula: Sendable {
+    fileprivate enum Source: Sendable {
+        case builtin(String)
+        case file(String)
+    }
+
+    fileprivate let source: Source
+
+    private init(source: Source) {
+        self.source = source
+    }
+
+    public static func builtin(_ id: String) -> Formula {
+        Formula(source: .builtin(id))
+    }
+
+    public static func file(atPath path: String) -> Formula {
+        Formula(source: .file(path))
+    }
+}
+
 public final class Token {
     fileprivate let handle: OpaquePointer
 
@@ -134,6 +155,60 @@ public final class Client {
                                     devicePointer
                                 )
                                 return try unwrap(handle)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        handle = created
+    }
+
+    public init(
+        formula: Formula,
+        method: String,
+        clientID: String? = nil,
+        clientSecret: String? = nil,
+        redirectURI: String? = nil,
+        scopes: String? = nil,
+        appName: String? = nil
+    ) throws {
+        let created = try withOptionalCString(clientID) { clientIDPointer in
+            try withOptionalCString(clientSecret) { clientSecretPointer in
+                try withOptionalCString(redirectURI) { redirectURIPointer in
+                    try withOptionalCString(scopes) { scopesPointer in
+                        try withOptionalCString(appName) { appNamePointer in
+                            try method.withCString { methodPointer in
+                                switch formula.source {
+                                case let .builtin(id):
+                                    return try id.withCString { formulaPointer in
+                                        try unwrap(
+                                            schlussel_client_new_formula_builtin(
+                                                formulaPointer,
+                                                methodPointer,
+                                                clientIDPointer,
+                                                clientSecretPointer,
+                                                redirectURIPointer,
+                                                scopesPointer,
+                                                appNamePointer
+                                            )
+                                        )
+                                    }
+                                case let .file(path):
+                                    return try path.withCString { formulaPointer in
+                                        try unwrap(
+                                            schlussel_client_new_formula_path(
+                                                formulaPointer,
+                                                methodPointer,
+                                                clientIDPointer,
+                                                clientSecretPointer,
+                                                redirectURIPointer,
+                                                scopesPointer,
+                                                appNamePointer
+                                            )
+                                        )
+                                    }
+                                }
                             }
                         }
                     }

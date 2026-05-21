@@ -159,6 +159,50 @@ SchlusselClient* schlussel_client_new(
 );
 
 /**
+ * Create a new OAuth client from a bundled formula
+ *
+ * @param formula_id     Bundled formula identifier such as "github" or "openai"
+ * @param method_name    Formula method name such as "device_code"
+ * @param client_id      Optional OAuth client ID override
+ * @param client_secret  Optional OAuth client secret override
+ * @param redirect_uri   Optional redirect URI override
+ * @param scopes         Optional scope override
+ * @param app_name       Optional app name for secure token persistence
+ * @return               Client pointer on success, NULL on error
+ */
+SchlusselClient* schlussel_client_new_formula_builtin(
+    const char* formula_id,
+    const char* method_name,
+    const char* client_id,
+    const char* client_secret,
+    const char* redirect_uri,
+    const char* scopes,
+    const char* app_name
+);
+
+/**
+ * Create a new OAuth client from a formula JSON file
+ *
+ * @param formula_path   Path to a formula JSON file
+ * @param method_name    Formula method name such as "authorization_code"
+ * @param client_id      Optional OAuth client ID override
+ * @param client_secret  Optional OAuth client secret override
+ * @param redirect_uri   Optional redirect URI override
+ * @param scopes         Optional scope override
+ * @param app_name       Optional app name for secure token persistence
+ * @return               Client pointer on success, NULL on error
+ */
+SchlusselClient* schlussel_client_new_formula_path(
+    const char* formula_path,
+    const char* method_name,
+    const char* client_id,
+    const char* client_secret,
+    const char* redirect_uri,
+    const char* scopes,
+    const char* app_name
+);
+
+/**
  * Free an OAuth client
  *
  * @param client    The client to free (may be NULL)

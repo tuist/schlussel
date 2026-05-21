@@ -65,13 +65,15 @@ Each GitHub release publishes a signed macOS `Schlussel.xcframework.zip` with a 
 import Schlussel
 
 let client = try Client(
-    githubClientID: "your-client-id",
-    scopes: "repo user",
+    formula: .builtin("github"),
+    method: "device_code",
     appName: "MyApp"
 )
 ```
 
-The framework wraps the Rust runtime behind Swift types like `Client`, `Token`, `RegistrationClient`, and `RegistrationResponse`. The underlying C header remains available for other native hosts.
+Use `.builtin("<id>")` for bundled formulas or `.file(atPath: "/path/to/formula.json")` for a custom formula file. Pass `clientID` and `clientSecret` when the selected formula does not include a default OAuth client. `appName` enables secure token persistence; omit it to keep tokens in memory.
+
+Preset helpers like `Client(githubClientID:...)` and `Client(googleClientID:...)` remain available when you do not need formula-driven setup. The framework wraps the Rust runtime behind Swift types like `Client`, `Token`, `RegistrationClient`, and `RegistrationResponse`. The underlying C header remains available for other native hosts.
 
 ## Development
 
