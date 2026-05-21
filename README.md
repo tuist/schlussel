@@ -73,6 +73,16 @@ let client = try Client(
 
 Use `.builtin("<id>")` for bundled formulas or `.file(atPath: "/path/to/formula.json")` for a custom formula file. Pass `clientID` and `clientSecret` when the selected formula does not include a default OAuth client. `appName` enables secure token persistence; omit it to keep tokens in memory.
 
+You can also inspect bundled formulas from Swift before creating a client:
+
+```swift
+let formulas = try Formula.builtins()
+let github = try Formula.builtin("github").metadata()
+
+print(formulas.map(\.id))
+print(github.methods.map(\.name))
+```
+
 Preset helpers like `Client(githubClientID:...)` and `Client(googleClientID:...)` remain available when you do not need formula-driven setup. The framework wraps the Rust runtime behind Swift types like `Client`, `Token`, `RegistrationClient`, and `RegistrationResponse`. The underlying C header remains available for other native hosts.
 
 ## Development
