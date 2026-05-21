@@ -1,5 +1,12 @@
 
 
+### Feat
+
+- Reuse Tuist-managed sessions ([#33](https://github.com/pepicrft/schlussel/pull/33)) by [@pepicrft](https://github.com/pepicrft)
+
+
+**Full Changelog**: https://github.com/pepicrft/schlussel/compare/0.13.2..0.14.0
+
 ### Fix
 
 - Keep release commits clean by [@pepicrft](https://github.com/pepicrft)
