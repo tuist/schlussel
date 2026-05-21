@@ -1,3 +1,5 @@
 [tools]
-zig = "0.15.2"
-"git-cliff" = "2.6.1"
+rust = "1.86"
+shellspec = "latest"
+"git-cliff" = "2.7.0"
+"github:tuist/blick" = "0.8.0"

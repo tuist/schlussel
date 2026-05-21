@@ -71,26 +71,21 @@ jobs:
   # Build CLI binaries
   # ===========================================================================
   build-cli:
-    name: Build CLI (${{ matrix.target }})
+    name: Build CLI (${{ matrix.artifact }})
     needs: check-release
     if: needs.check-release.outputs.should-release == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         include:
-          - target: x86_64-linux
+          - os: ubuntu-latest
             artifact: schlussel-x86_64-linux
-          - target: aarch64-linux
-            artifact: schlussel-aarch64-linux
-          - target: x86_64-macos
-            artifact: schlussel-x86_64-macos
-          - target: aarch64-macos
-            artifact: schlussel-aarch64-macos
-          - target: x86_64-windows
+            ext: ""
+          - os: macos-latest
+            artifact: schlussel-native-macos
+            ext: ""
+          - os: windows-latest
             artifact: schlussel-x86_64-windows
-            ext: .exe
-          - target: aarch64-windows
-            artifact: schlussel-aarch64-windows
             ext: .exe
     steps:
       - uses: actions/checkout@v4
@@ -98,17 +93,18 @@ jobs:
       - uses: jdx/mise-action@v2
 
       - name: Build release binary
-        run: zig build -Doptimize=ReleaseFast -Dtarget=${{ matrix.target }}
+        run: mise exec -- cargo build --release --bin schlussel
 
       - name: Package binary
+        shell: bash
         run: |
           mkdir -p dist
           cd dist
-          if [[ "${{ matrix.target }}" == *"windows"* ]]; then
-            cp ../zig-out/bin/schlussel.exe schlussel.exe
+          if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
+            cp ../target/release/schlussel.exe schlussel.exe
             zip ${{ matrix.artifact }}.zip schlussel.exe
           else
-            cp ../zig-out/bin/schlussel schlussel
+            cp ../target/release/schlussel schlussel
             tar -czvf ${{ matrix.artifact }}.tar.gz schlussel
           fi
 

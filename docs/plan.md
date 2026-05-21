@@ -1,8 +1,7 @@
 # Scripts
 
 Scripts are structured instructions that tell an agent how to guide
-the user through authentication. They are emitted by `schlussel script` and can
-be executed once resolved by `schlussel run`.
+the user through authentication. They are emitted by `schlussel script`.
 
 ## Script Output
 
@@ -54,20 +53,8 @@ schlussel script --json-schema
 # Emit a resolved script
 schlussel script github --method device_code --resolve > script.json
 
-# Execute a resolved script
-schlussel run github --script-json script.json
-
-# Execute a resolved script from stdin
-cat script.json | schlussel run --script-json -
-
-# Execute from stdin without flags
-cat script.json | schlussel run -
-
 # Resolve and run directly (no script file)
 schlussel run github --method device_code
-
-# Emit machine-readable output
-schlussel run github --script-json script.json --json
 ```
 
 ## Non-OAuth Methods
@@ -78,8 +65,5 @@ prints the script steps and stores the provided secret as a token:
 - pass `--credential` to provide the secret non-interactively
 - otherwise, the CLI prompts for the secret on stdin
 
-Storage keys follow the formula `storage.key_template` when present, otherwise
-`{formula_id}:{method}`.
-
-If the template includes `{identity}`, pass `--identity` when running the script
-so multiple identities can be stored side-by-side.
+Storage keys use the conventional format `{formula_id}:{method}` or
+`{formula_id}:{method}:{identity}` when `--identity` is supplied.

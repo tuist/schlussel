@@ -2945,7 +2945,7 @@ export function renderDocsPage(): string {
 '\n' +
 '# Or build from source\n' +
 'git clone https://github.com/pepicrft/schlussel\n' +
-'cd schlussel && zig build</code></pre>\n' +
+'cd schlussel && mise exec -- cargo build --workspace</code></pre>\n' +
 '\n' +
 '        <h3 class="docs-section__subtitle" id="commands"><a href="#commands">Commands</a></h3>\n' +
 '\n' +
@@ -3058,6 +3058,10 @@ export function renderDocsPage(): string {
 '              <td>Filter/query by formula ID (e.g., <code>github</code>).</td>\n' +
 '            </tr>\n' +
 '            <tr>\n' +
+'              <td><code>--formula-json &lt;str&gt;</code></td>\n' +
+'              <td>Load the custom formula JSON again when querying or refreshing tokens.</td>\n' +
+'            </tr>\n' +
+'            <tr>\n' +
 '              <td><code>--method &lt;str&gt;</code></td>\n' +
 '              <td>Filter/query by auth method (e.g., <code>device_code</code>).</td>\n' +
 '            </tr>\n' +
@@ -3080,6 +3084,31 @@ export function renderDocsPage(): string {
 '          <div class="docs-note__title">Auto-refresh with locking</div>\n' +
 '          By default, <code>schlussel token get</code> automatically refreshes OAuth2 tokens that are expired or expiring soon. It acquires a cross-process lock before refreshing, ensuring that if multiple processes request the same token simultaneously, only one performs the refresh while others wait and receive the updated token. Use <code>--no-refresh</code> to disable this behavior.\n' +
 '        </div>\n' +
+'\n' +
+'        <h4 style="margin-top: var(--space-md); font-weight: 700;">schlussel script &lt;formula&gt;</h4>\n' +
+'        <p>Emit a machine-readable script document for an agent workflow.</p>\n' +
+'        <table class="docs-table">\n' +
+'          <thead>\n' +
+'            <tr>\n' +
+'              <th>Option</th>\n' +
+'              <th>Description</th>\n' +
+'            </tr>\n' +
+'          </thead>\n' +
+'          <tbody>\n' +
+'            <tr>\n' +
+'              <td><code>--resolve</code></td>\n' +
+'              <td>Resolve live context values such as <code>authorize_url</code>, <code>device_code</code>, and <code>user_code</code>.</td>\n' +
+'            </tr>\n' +
+'            <tr>\n' +
+'              <td><code>--json-schema</code></td>\n' +
+'              <td>Print the JSON schema for the script document format.</td>\n' +
+'            </tr>\n' +
+'            <tr>\n' +
+'              <td><code>--formula-json &lt;str&gt;</code></td>\n' +
+'              <td>Load a custom formula file before emitting the script document.</td>\n' +
+'            </tr>\n' +
+'          </tbody>\n' +
+'        </table>\n' +
 '\n' +
 '        <h3 class="docs-section__subtitle" id="examples"><a href="#examples">Examples</a></h3>\n' +
 '        <pre><code># Authenticate with GitHub (auto-selects public client and method)\n' +
@@ -3117,6 +3146,12 @@ export function renderDocsPage(): string {
 '\n' +
 '# Get token as JSON\n' +
 'schlussel token get --formula github --method device_code --json\n' +
+'\n' +
+'# Refresh a token that came from a custom formula file\n' +
+'schlussel token get --formula local --formula-json ./formula.json --method device_code\n' +
+'\n' +
+'# Emit a resolved script document for an agent\n' +
+'schlussel script github --method device_code --resolve\n' +
 '\n' +
 '# Delete a token\n' +
 'schlussel token delete --key github:device_code:personal</code></pre>\n' +

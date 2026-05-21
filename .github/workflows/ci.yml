@@ -16,16 +16,24 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Zig
-        uses: mlugg/setup-zig@v2
-        with:
-          version: 0.15.2
-
-      - name: Build
-        run: zig build
+      - uses: jdx/mise-action@v2
 
       - name: Run tests
-        run: zig build test
+        run: mise exec -- cargo test
+
+  e2e:
+    name: E2E
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: jdx/mise-action@v2
+
+      - name: Build E2E binaries
+        run: mise exec -- cargo build --workspace
+
+      - name: Run ShellSpec
+        run: shellspec
 
   fmt:
     name: Format
@@ -33,10 +41,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Zig
-        uses: mlugg/setup-zig@v2
-        with:
-          version: 0.15.2
+      - uses: jdx/mise-action@v2
 
       - name: Check formatting
-        run: zig fmt --check src/
+        run: mise exec -- cargo fmt --check

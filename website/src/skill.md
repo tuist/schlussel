@@ -26,7 +26,7 @@ The command outputs JSON with the token information:
 
 ```json
 {
-  "storage_key": "github:personal:device_code",
+  "storage_key": "github:device_code:personal",
   "method": "device_code",
   "token": {
     "access_token": "gho_xxxx",
@@ -44,6 +44,9 @@ schlussel token get --key <storage_key>
 
 # By key components
 schlussel token get --formula <formula> [--method <method>] [--identity <identity>]
+
+# If the token came from a custom formula file, pass it again for refresh support
+schlussel token get --formula <formula> --formula-json ./formula.json [--method <method>]
 
 # Disable auto-refresh (tokens are auto-refreshed by default)
 schlussel token get --formula github --method authorization_code --no-refresh
@@ -76,6 +79,19 @@ schlussel token list --json
 schlussel token delete --key <storage_key>
 # or
 schlussel token delete --formula <formula> --method <method>
+```
+
+### Emit a script document
+
+```bash
+# Print the output schema
+schlussel script --json-schema
+
+# Emit the static script steps for a provider
+schlussel script github
+
+# Resolve a live device code or authorization URL
+schlussel script github --method device_code --resolve
 ```
 
 ## Available Formulas
@@ -117,7 +133,6 @@ Each formula contains:
 - `methods`: Authentication methods (e.g., `device_code`, `authorization_code`, `api_key`)
 - `clients`: Public OAuth clients that can be used without registration
 - `identity`: Optional identity hint for multi-account support
-- `notes`: Additional documentation for non-standard auth flows
 
 ### API Object
 
@@ -137,8 +152,8 @@ Each API in `apis` contains:
 Each method in `methods` contains:
 
 - `label`: Human-readable name for the method
-- `endpoints`: OAuth endpoints (`authorize`, `token`, `device_authorization`)
-- `scope`: OAuth scopes (comma-separated string or array)
+- `endpoints`: OAuth endpoints (`authorize`, `token`, `device`, `registration`)
+- `scope`: OAuth scopes (space-separated string)
 - `register`: Setup instructions with `url` and `steps` array
 - `script`: Interactive steps for the auth flow
 - `dynamic_registration`: MCP OAuth dynamic registration settings
