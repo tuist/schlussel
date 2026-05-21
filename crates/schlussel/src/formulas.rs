@@ -359,6 +359,13 @@ mod tests {
     }
 
     #[test]
+    fn builtin_formulas_include_tuist() {
+        let tuist = find_builtin("tuist").expect("tuist formula");
+        assert_eq!(tuist.label, "Tuist");
+        assert!(tuist.methods.contains_key("session"));
+    }
+
+    #[test]
     fn builtin_formula_list_is_sorted() {
         let ids = list_builtin()
             .into_iter()

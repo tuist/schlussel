@@ -1,0 +1,34 @@
+{
+  "schema": "v2",
+  "id": "tuist",
+  "label": "Tuist",
+  "description": "Reuse and refresh sessions that are already managed by Tuist. Schlussel reads Tuist's credential files and refreshes them using Tuist's locking model.",
+  "identity": {
+    "label": "Server",
+    "hint": "Optional full server URL or host. Defaults to https://tuist.dev"
+  },
+  "methods": {
+    "session": {
+      "label": "Managed Session",
+      "script": [
+        {
+          "type": "run_command",
+          "value": "tuist auth login",
+          "note": "Create or update the Tuist-managed session first."
+        },
+        {
+          "type": "read_session",
+          "note": "Schlussel will read and refresh the stored Tuist session."
+        }
+      ]
+    }
+  },
+  "apis": {
+    "rest": {
+      "base_url": "https://tuist.dev/api",
+      "auth_header": "Authorization: Bearer {token}",
+      "docs_url": "https://docs.tuist.dev",
+      "methods": ["session"]
+    }
+  }
+}
