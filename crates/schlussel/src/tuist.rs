@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 use tempfile::NamedTempFile;
 use url::Url;
 
-use schlussel::{Result, SchlusselError, Token};
+use crate::{Result, SchlusselError, Token};
 
 const TUIST_REFRESH_WINDOW_SECS: u64 = 30;
 const TUIST_LOCK_STALE_SECS: u64 = 10;
@@ -44,7 +44,6 @@ impl TuistSessionStore {
         self.load_token_for(&parsed)
     }
 
-    #[cfg(test)]
     pub fn save_token(&self, server_url: &str, token: &Token) -> Result<()> {
         let parsed = ParsedServerUrl::parse(server_url)?;
         self.save_token_for(&parsed, token)
@@ -269,7 +268,7 @@ impl TuistSessionStore {
     }
 }
 
-pub(crate) fn normalize_server_url(identity: Option<&str>) -> Result<String> {
+pub fn normalize_server_url(identity: Option<&str>) -> Result<String> {
     match identity
         .map(str::trim)
         .filter(|identity| !identity.is_empty())
@@ -287,7 +286,7 @@ pub(crate) fn normalize_server_url(identity: Option<&str>) -> Result<String> {
     }
 }
 
-pub(crate) fn host_matches_identity(host: &str, identity: Option<&str>) -> bool {
+pub fn host_matches_identity(host: &str, identity: Option<&str>) -> bool {
     let Some(identity) = identity
         .map(str::trim)
         .filter(|identity| !identity.is_empty())

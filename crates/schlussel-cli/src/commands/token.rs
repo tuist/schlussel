@@ -12,7 +12,7 @@ use crate::cli::{TokenAction, TokenArgs, TokenKeyArgs, TokenListArgs};
 use crate::formula_support::load_formula;
 use crate::output::{OutputContext, OutputMode};
 use crate::render::{print_deleted_token, print_token_details, print_token_list};
-use crate::tuist::{host_matches_identity, normalize_server_url, TuistSessionStore};
+use schlussel::tuist::{host_matches_identity, normalize_server_url, TuistSessionStore};
 
 pub fn execute(args: TokenArgs, output: OutputContext) -> Result<()> {
     match args.action {

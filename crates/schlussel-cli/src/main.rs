@@ -8,7 +8,6 @@ mod commands;
 mod formula_support;
 mod output;
 mod render;
-mod tuist;
 
 fn main() {
     let cli = Cli::parse();
