@@ -1,5 +1,12 @@
 
 
+### Refactor
+
+- Move TuistSessionStore into the schlussel library crate ([#37](https://github.com/pepicrft/schlussel/pull/37)) by [@pepicrft](https://github.com/pepicrft)
+
+
+**Full Changelog**: https://github.com/pepicrft/schlussel/compare/0.17.0..0.17.1
+
 ### Feat
 
 - Add json/toon output formats and Tuist token discovery ([#36](https://github.com/pepicrft/schlussel/pull/36)) by [@pepicrft](https://github.com/pepicrft)
